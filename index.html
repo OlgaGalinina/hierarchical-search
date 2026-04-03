@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hierarchical Beam Search: Optimization and Scaling</title>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #ffffff;
+  --bg2: #f8f7f4;
+  --bg3: #f0ede8;
+  --text: #1a1814;
+  --text2: #4a4540;
+  --text3: #7a7570;
+  --accent: #1d4ed8;
+  --accent2: #1e40af;
+  --border: #e2ddd8;
+  --card-bg: #ffffff;
+  --code-bg: #f4f1ec;
+  --radius: 6px;
+  --serif: 'Georgia', 'Times New Roman', serif;
+  --sans: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --mono: 'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f0e0c;
+    --bg2: #1a1814;
+    --bg3: #252218;
+    --text: #f0ece4;
+    --text2: #c8c2b8;
+    --text3: #8a8278;
+    --accent: #60a5fa;
+    --accent2: #93c5fd;
+    --border: #2e2a24;
+    --card-bg: #1a1814;
+    --code-bg: #252218;
+  }
+}
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; font-size: 16px; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); line-height: 1.65; }
+
+/* ── Layout ── */
+.container { max-width: 900px; margin: 0 auto; padding: 0 2rem; }
+.container--wide { max-width: 1100px; margin: 0 auto; padding: 0 2rem; }
+section { padding: 5rem 0; }
+section + section { border-top: 1px solid var(--border); }
+
+/* ── Typography ── */
+.section-label {
+  font-size: .7rem; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--text3); font-family: var(--sans); margin-bottom: 1rem;
+}
+h1 { font-family: var(--serif); font-size: clamp(1.6rem, 4vw, 2.6rem); font-weight: normal; line-height: 1.25; }
+h2 { font-family: var(--serif); font-size: 1.55rem; font-weight: normal; margin-bottom: 1.25rem; }
+h3 { font-size: .9rem; letter-spacing: .04em; text-transform: uppercase; color: var(--text2); margin-bottom: .75rem; font-family: var(--sans); font-weight: 600; }
+p { margin-bottom: 1rem; color: var(--text2); font-size: .95rem; }
+p:last-child { margin-bottom: 0; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Hero ── */
+.hero { padding: 7rem 0 5rem; }
+.hero__meta { font-size: .8rem; color: var(--text3); margin-bottom: 2.5rem; letter-spacing: .02em; }
+.hero__authors { font-family: var(--serif); font-size: 1rem; color: var(--text2); margin: 1.5rem 0 2.5rem; font-style: italic; }
+.hero__sub { font-size: 1.05rem; color: var(--text2); max-width: 680px; margin: 1.25rem 0 2.5rem; line-height: 1.7; font-family: var(--serif); font-style: italic; }
+.hero__btns { display: flex; gap: .75rem; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .55rem 1.25rem; border-radius: var(--radius);
+  font-size: .85rem; font-family: var(--sans); font-weight: 500;
+  cursor: pointer; transition: opacity .15s, background .15s;
+  border: 1.5px solid var(--accent); color: var(--accent); background: transparent;
+  letter-spacing: .02em;
+}
+.btn:hover { background: var(--accent); color: #fff; text-decoration: none; }
+.btn--filled { background: var(--accent); color: #fff; }
+.btn--filled:hover { background: var(--accent2); border-color: var(--accent2); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn--sm { padding: .35rem .9rem; font-size: .78rem; }
+
+/* ── Rule ── */
+.rule { border: none; border-top: 1px solid var(--border); margin: 0; }
+
+/* ── Video ── */
+.video-wrap { position: relative; width: 100%; max-width: 800px; margin: 0 auto; border-radius: var(--radius); overflow: hidden; background: #000; }
+.video-wrap::before { content: ''; display: block; padding-top: 56.25%; }
+.video-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.video-caption { text-align: center; font-size: .82rem; color: var(--text3); margin-top: 1rem; font-style: italic; }
+
+/* ── Cards ── */
+.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+@media(max-width:680px){ .cards { grid-template-columns: 1fr; } }
+.card {
+  background: var(--card-bg); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.75rem;
+}
+.card__label { font-size: .68rem; letter-spacing: .15em; text-transform: uppercase; color: var(--text3); margin-bottom: .5rem; }
+.card__title { font-family: var(--serif); font-size: 1.15rem; margin-bottom: 1rem; color: var(--text); }
+.card__eq { font-size: .9rem; margin-bottom: .6rem; }
+.card__toggle { background: none; border: none; cursor: pointer; color: var(--accent); font-size: .8rem; margin-top: .75rem; padding: 0; font-family: var(--sans); }
+.card__details { display: none; margin-top: .75rem; padding-top: .75rem; border-top: 1px solid var(--border); font-size: .83rem; color: var(--text2); line-height: 1.6; }
+.card__details.open { display: block; }
+
+/* ── Calculator ── */
+.calc-grid { display: grid; grid-template-columns: 310px 1fr; gap: 2rem; align-items: start; }
+@media(max-width:760px){ .calc-grid { grid-template-columns: 1fr; } }
+.calc-inputs { display: flex; flex-direction: column; gap: .6rem; }
+.field { display: flex; flex-direction: column; gap: .25rem; }
+.field label { font-size: .76rem; color: var(--text2); font-weight: 500; letter-spacing: .02em; }
+.field input, .field select {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: .45rem .65rem;
+  font-size: .85rem; color: var(--text); font-family: var(--sans);
+  width: 100%;
+}
+.field input:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+.field--row { flex-direction: row; gap: .5rem; }
+.field--row .field { flex: 1; }
+.calc-output { min-height: 300px; }
+.calc-summary {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1rem 1.25rem; margin-bottom: 1rem; font-size: .83rem; color: var(--text2);
+  display: none;
+}
+.calc-summary.visible { display: block; }
+.calc-summary strong { color: var(--text); }
+.chart-wrap { position: relative; }
+.spinner { display: none; position: absolute; inset: 0; background: var(--bg); opacity: .85; align-items: center; justify-content: center; border-radius: var(--radius); }
+.spinner.active { display: flex; }
+.spinner__ring { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.sec-title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem; }
+
+/* ── Resources ── */
+.resources { display: grid; grid-template-columns: repeat(3,1fr); gap: 1.25rem; }
+@media(max-width:640px){ .resources { grid-template-columns: 1fr; } }
+.resource-card {
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 1.4rem;
+  display: flex; flex-direction: column; gap: .5rem;
+}
+.resource-card__icon { font-size: 1.3rem; }
+.resource-card__title { font-size: .85rem; font-weight: 600; color: var(--text); }
+.resource-card__desc { font-size: .8rem; color: var(--text3); flex: 1; }
+.resource-card a { font-size: .8rem; }
+
+/* ── BibTeX ── */
+.bibtex-wrap { position: relative; }
+.bibtex-wrap pre {
+  background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1.25rem 1.5rem; font-family: var(--mono); font-size: .8rem; color: var(--text2);
+  white-space: pre; overflow-x: auto; line-height: 1.7;
+}
+.copy-btn-wrap { margin-top: .75rem; }
+
+/* ── Code modal ── */
+.modal-backdrop {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55);
+  z-index: 1000; align-items: center; justify-content: center; padding: 1rem;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius);
+  width: 100%; max-width: 700px; max-height: 90vh; display: flex; flex-direction: column;
+}
+.modal__header { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 1.5rem; border-bottom: 1px solid var(--border); }
+.modal__title { font-size: .9rem; font-weight: 600; color: var(--text); }
+.modal__close { background: none; border: none; cursor: pointer; font-size: 1.2rem; color: var(--text3); line-height: 1; padding: .25rem; }
+.modal__close:hover { color: var(--text); }
+.tab-strip { display: flex; gap: 0; border-bottom: 1px solid var(--border); padding: 0 1rem; overflow-x: auto; }
+.tab-btn {
+  background: none; border: none; cursor: pointer; padding: .65rem 1rem;
+  font-size: .78rem; color: var(--text3); font-family: var(--sans);
+  border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;
+}
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-btn:focus-visible { outline: 2px solid var(--accent); }
+.modal__body { flex: 1; overflow-y: auto; padding: 1.25rem 1.5rem; }
+.code-block {
+  background: var(--code-bg); border-radius: var(--radius); padding: 1rem 1.25rem;
+  font-family: var(--mono); font-size: .78rem; color: var(--text2);
+  white-space: pre; overflow-x: auto; line-height: 1.65; display: none;
+}
+.code-block.active { display: block; }
+.code-kw { color: #8b5cf6; }
+.code-fn { color: #0369a1; }
+.code-cm { color: var(--text3); font-style: italic; }
+.code-num { color: #059669; }
+.modal__footer { padding: .75rem 1.5rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
+
+/* ── Fixed code button ── */
+.code-fab {
+  position: fixed; bottom: 1.75rem; right: 1.75rem; z-index: 500;
+  background: var(--card-bg); border: 1.5px solid var(--border);
+  border-radius: 999px; padding: .55rem 1.1rem;
+  font-size: .78rem; font-family: var(--mono); color: var(--text2);
+  cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  transition: border-color .15s, color .15s;
+}
+.code-fab:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Misc ── */
+.tag { display: inline-block; font-size: .7rem; padding: .2rem .6rem; background: var(--bg3); border-radius: 999px; color: var(--text3); letter-spacing: .04em; margin-bottom: .3rem; }
+mjx-container { overflow-x: auto; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════ HERO ═══════════════════════════════════════ -->
+<section class="hero">
+<div class="container">
+  <h1>How to Configure Hierarchical Search:<br>Closed-form Scaling Laws for 6G Beam Management</h1>
+  <p class="hero__authors">Olga Galinina &thinsp;&middot;&thinsp; Sergey Andreev &thinsp;&middot;&thinsp; Robert Heath</p>
+  <p class="hero__sub">Hierarchical search is the standard alternative to exhaustive search in directional wireless access. Yet its performance depends on how it is configured. This page illustrate the choice of optimal parameters and provides a simple baseline for 6G beam management research.</p>
+  <div class="hero__btns">
+    <a href="https://github.com/OlgaGalinina/hierarchical-search" target="_blank" rel="noopener" class="btn">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      GitHub
+    </a>
+    <a href="#calculator" class="btn btn--filled">Open Calculator</a>
+    <a href="https://github.com/OlgaGalinina/hierarchical-search/blob/main/Per-layer-misdetection-formula.pdf" target="_blank" rel="noopener" class="btn">Derivation Note</a>
+  </div>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════ PROBLEM ═══════════════════════════════════════ -->
+<!--<section>
+<div class="container">
+  <div class="section-label">Motivation</div>
+  <h2>Why configuration matters</h2>
+  <p>Hierarchical search (HS) organizes beam probing into a sequence of layers, starting from wide beams that cover large angular sectors and progressively narrowing toward the best direction. This reduces the number of beam measurements compared to exhaustive search, which scales linearly with the codebook size. The efficiency of HS, however, depends on two choices that are often made informally: how many layers to use, and how many beams to test at each layer. In most published work these are set by intuition, fixed convention, or grid search — leaving the baseline underspecified.</p>
+  <p>This paper proves that there is a closed-form optimal configuration. For a noiseless single-path channel, the resource-optimal search depth scales as the natural logarithm of the codebook size, and the optimal number of beams per layer follows directly. For systems with inter-layer overhead, a Lambert-W correction adjusts the depth. When misdetection probability is incorporated under a Rician fading model, the same per-layer beam count remains optimal while the number of layers may decrease. These results give a principled, analytically grounded baseline — one worth establishing before benchmarking a new machine-learning or adaptive beam management method against HS.</p>
+</div>
+</section>-->
+
+<!-- ═══════════════════════════════════════ VIDEO ═══════════════════════════════════════ -->
+<section>
+<div class="container">
+  <div class="section-label">Overview</div>
+  <h2>The idea in 6 minutes</h2>
+  <div class="video-wrap">
+      <iframe src="https://www.youtube-nocookie.com/embed/zf--Cutuh2o?rel=0&modestbranding=1" title="Hierarchical Beam Search: Scaling Laws" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin"></iframe>  
+  </div>
+  <p class="video-caption">A conceptual introduction to scaling laws in hierarchical search: how optimal depth, resource allocation, and misdetection probability relate as codebook size grows.</p>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════ CALCULATOR ═══════════════════════════════════════ -->
+<section id="calculator">
+<div class="container--wide">
+  <div class="sec-title-row">
+    <div>
+      <div class="section-label">Calculator</div>
+      <h2 style="margin-bottom:0">Compute the optimal configuration</h2>
+    </div>
+  </div>
+  <div class="calc-grid">
+    <!-- inputs -->
+    <div class="calc-inputs">
+      <div class="field--row field">
+        <div class="field"><label>X min</label><input type="number" id="xmin" value="3" min="2"></div>
+        <div class="field"><label>X max</label><input type="number" id="xmax" value="100000" min="10"></div>
+        <div class="field"><label>Points</label><input type="number" id="xpts" value="120" min="20" max="400"></div>
+      </div>
+      <div class="field--row field">
+        <div class="field"><label>f<sub>c</sub> [GHz]</label><input type="number" id="fc" value="28" step="any"></div>
+        <div class="field"><label>Distance [m]</label><input type="number" id="dist" value="20" step="any"></div>
+      </div>
+      <div class="field--row field">
+        <div class="field"><label>P<sub>tx</sub> [dBm]</label><input type="number" id="ptx" value="10" step="any"></div>
+        <div class="field"><label>NF [dB]</label><input type="number" id="nf" value="5" step="any"></div>
+        <div class="field"><label>B [MHz]</label><input type="number" id="bw" value="100" step="any"></div>
+      </div>
+      <div class="field--row field">
+        <div class="field"><label>Rician K</label><input type="number" id="kric" value="10" step="any" min="0"></div>
+        <div class="field"><label>N<sub>ant</sub></label><input type="number" id="nant" value="128" min="1"></div>
+      </div>
+      <div class="field--row field">
+        <div class="field"><label>θ₀ [deg]</label><input type="number" id="theta0" value="120" step="any" min="1" max="180"></div>
+        <div class="field"><label>ε (reliability)</label><input type="number" id="epsilon" value="0.01" step="any" min="1e-6" max="0.5"></div>
+      </div>
+      <div class="field">
+        <label>Numerology</label>
+        <select id="numsel">
+          <option value="66.67">Numerology 0: 15 kHz / 66.67 µs</option>
+          <option value="33.33">Numerology 1: 30 kHz / 33.33 µs</option>
+          <option value="16.67">Numerology 2: 60 kHz / 16.67 µs</option>
+          <option value="8.33">Numerology 3: 120 kHz / 8.33 µs</option>
+          <option value="4.17">Numerology 4: 240 kHz / 4.17 µs</option>
+          <option value="custom">Custom…</option>
+        </select>
+      </div>
+      <div class="field" id="custom-sym-field" style="display:none">
+        <label>Symbol duration [µs]</label>
+        <input type="number" id="customsym" value="66.67" step="any" min="0.1">
+      </div>
+      <div class="field--row field">
+        <div class="field"><label>T<sub>c</sub> burst [ms]</label><input type="number" id="tc" value="10" step="any" min="0.1"></div>
+      </div>
+      <button class="btn btn--filled" id="compute-btn" onclick="runCalc()">Compute</button>
+    </div>
+    <!-- output -->
+    <div class="calc-output">
+      <div class="calc-summary" id="calc-summary"></div>
+      <div class="chart-wrap">
+        <canvas id="delay-chart" height="320"></canvas>
+        <div class="spinner" id="spinner"><div class="spinner__ring"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════ RESULTS CARDS ═══════════════════════════════════════ -->
+<section>
+<div class="container">
+  <div class="section-label">Key results</div>
+  <h2>Closed-form optimal configuration</h2>
+  <div class="cards">
+    <!-- Card A -->
+    <div class="card">
+      <div class="card__label">Proposition 1 &amp; 2</div>
+      <div class="card__title">Unconstrained optimum</div>
+      <div class="card__eq">\( L^* = \ln X \) layers</div>
+      <div class="card__eq">\( N^* = X^{1/\ln X} \) beams per layer</div>
+      <div class="card__eq">\( R^* = e\ln X \) total resources</div>
+      <div class="card__eq" style="margin-top:.75rem;font-size:.82rem;color:var(--text3)">Option A delay (equal inter-layer intervals \(c\)):</div>
+      <div class="card__eq">\( L_A^* = \dfrac{\ln X}{1 + W(c/e)} \)</div>
+      <div class="card__eq" style="margin-top:.5rem;font-size:.82rem;color:var(--text3)">Option B delay (fixed period \(c_1\) between sweep starts):</div>
+      <div class="card__eq">\( L_B^* = \dfrac{\ln X}{2\,W\!\left(\dfrac{\sqrt{c_1 \ln X}}{2}\right)} \)</div>
+      <button class="card__toggle" onclick="this.nextElementSibling.classList.toggle('open');this.textContent=this.nextElementSibling.classList.contains('open')?'▲ hide details':'▼ show details'">▼ show details</button>
+      <div class="card__details">
+        The optimal per-layer beam count \(N^* = X^{1/L}\) follows from minimizing \(\sum N_\ell\) subject to \(\prod N_\ell = X\), which is an arithmetic-geometric mean problem. For fixed \(L\), the optimum is \(N_\ell = X^{1/L}\) (equal widths). Optimizing over \(L\) then gives \(L^* = \ln X\) by solving \(\frac{d}{dL}[L \cdot X^{1/L}] = 0\). For Option B, the objective becomes \(X^{1/L} + c_1(L-1)\) and the Lambert-W correction follows from the stationarity condition \(X^{1/L} \ln X = c_1 L^2\).
+      </div>
+    </div>
+    <!-- Card B -->
+    <div class="card">
+      <div class="card__label">Proposition 3</div>
+      <div class="card__title">With reliability constraint</div>
+      <div class="card__eq" style="font-size:.82rem;color:var(--text3)">Per-layer error probability (exact, Rician fading):</div>
+      <div class="card__eq">\( P_e = 1 - \sum_{m=0}^{N-1}\binom{N-1}{m}(-1)^m \dfrac{e^{-m\nu/N_0}}{1+m\sigma^2/N_0} \)</div>
+      <div class="card__eq" style="margin-top:.75rem;font-size:.82rem;color:var(--text3)">Sufficient closed-form condition (\(\varepsilon \ll 1\)):</div>
+      <div class="card__eq">\( \dfrac{(K{+}1)e^{-K} H_{N-1}\,\theta_0}{101.5^\circ \cdot \mathrm{SNR}} \cdot \dfrac{1-(N{-}1)^{-L}}{N-2} \leq \varepsilon \)</div>
+      <p style="font-size:.8rem;color:var(--text3);margin-top:.75rem">At typical 6G SNR the reliability constraint may be inactive. The calculator shows when it bites.</p>
+      <button class="card__toggle" onclick="this.nextElementSibling.classList.toggle('open');this.textContent=this.nextElementSibling.classList.contains('open')?'▲ hide details':'▼ show details'">▼ show details</button>
+      <div class="card__details">
+        <strong>Assumptions:</strong> boundary-centered beam placement (HPBW = \(\theta/(N{-}1)\)), Rician \(K\)-factor with i.i.d. scatter, AWGN noise with figure \(N_F\), layer independence (block fading). The gain on the correct beam is \(G = \min(N_\mathrm{ant},\, 101.5°(N{-}1)/\theta)\), capped at the array size. The sufficient condition is derived from the harmonic approximation \(P_e \approx (K{+}1)e^{-K}H_{N-1}/(G \cdot \mathrm{SNR})\) under high SNR.
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════ RESOURCES ═══════════════════════════════════════ -->
+<section>
+<div class="container">
+  <div class="section-label">Materials</div>
+  <h2>Resources</h2>
+  <div class="resources">
+    <div class="resource-card">
+      <div class="resource-card__icon">📄</div>
+      <div class="resource-card__title">Derivation note</div>
+      <div class="resource-card__desc">Per-layer misdetection probability: channel model, exact formula, and high-SNR approximation</div>
+      <a href="https://github.com/OlgaGalinina/hierarchical-search/blob/main/Per-layer-misdetection-formula.pdf" target="_blank" rel="noopener">Download PDF →</a>
+    </div>
+    <div class="resource-card">
+      <div class="resource-card__icon">⌨️</div>
+      <div class="resource-card__title">GitHub repository</div>
+      <div class="resource-card__desc">Supporting code and documentation for all numerical results</div>
+      <a href="https://github.com/OlgaGalinina/hierarchical-search" target="_blank" rel="noopener">View on GitHub →</a>
+    </div>
+    <div class="resource-card">
+      <div class="resource-card__icon">📝</div>
+      <div class="resource-card__title">Manuscript</div>
+      <div class="resource-card__desc">Under review. Contact authors for a preprint copy.</div>
+      <a href="mailto:olga.galinina@gmail.com">olga.galinina@gmail.com</a>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════ BIBTEX ═══════════════════════════════════════ -->
+<section>
+<div class="container">
+  <div class="section-label">Citation</div>
+  <h2>Cite this work</h2>
+  <div class="bibtex-wrap">
+    <pre id="bibtex-block">@article{galinina2026hierarchical,
+  title  = {Hierarchical Beam Search: Optimization and Scaling},
+  author = {Galinina, Olga and Andreev, Sergey and Heath, Robert},
+  year   = {2026},
+  note   = {Under review}
+}</pre>
+    <div class="copy-btn-wrap">
+      <button class="btn btn--sm" onclick="copyBibtex()">Copy BibTeX</button>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════ CODE MODAL ═══════════════════════════════════════ -->
+<button class="code-fab" onclick="openModal()" aria-label="View Python code">{ } Python code</button>
+
+<div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-label="Python code" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal__header">
+      <span class="modal__title">Python code</span>
+      <button class="modal__close" onclick="closeModal()" aria-label="Close">×</button>
+    </div>
+    <div class="tab-strip" role="tablist">
+      <button class="tab-btn active" onclick="switchTab(0)" role="tab">Exact Pₑ</button>
+      <button class="tab-btn" onclick="switchTab(1)" role="tab">Harmonic approx.</button>
+      <button class="tab-btn" onclick="switchTab(2)" role="tab">Optimal L</button>
+      <button class="tab-btn" onclick="switchTab(3)" role="tab">Constraint check</button>
+    </div>
+    <div class="modal__body">
+<pre class="code-block active" id="tab0"><span class="code-cm"># Exact per-layer error probability — Proposition 1
+# Recursive binomial coefficient update avoids math.comb overflow.
+# Numerically stable for N ≤ 48; use Pe_exact_quad for larger N.</span>
+
+<span class="code-kw">import</span> math
+<span class="code-kw">from</span> scipy.special <span class="code-kw">import</span> i0
+<span class="code-kw">from</span> scipy.integrate <span class="code-kw">import</span> quad
+
+<span class="code-fn">def</span> <span class="code-fn">beam_gain</span>(N, theta_deg, Nant=<span class="code-num">128</span>):
+    <span class="code-kw">return</span> min(Nant, <span class="code-num">101.5</span> * (N - <span class="code-num">1</span>) / theta_deg)
+
+<span class="code-fn">def</span> <span class="code-fn">Pe_exact</span>(N, theta_deg, SNR, K=<span class="code-num">10</span>, Nant=<span class="code-num">128</span>):
+    <span class="code-cm">"""Alternating binomial sum with recursive coefficient update."""</span>
+    G  = beam_gain(N, theta_deg, Nant)
+    nu = G * SNR * K / (K + <span class="code-num">1</span>)
+    s2 = G * SNR / (K + <span class="code-num">1</span>) + <span class="code-num">1.0</span>
+    s, binom, sign = <span class="code-num">1.0</span>, <span class="code-num">1.0</span>, <span class="code-num">-1.0</span>
+    <span class="code-kw">for</span> m <span class="code-kw">in</span> range(<span class="code-num">1</span>, N):
+        binom *= (N - m) / m
+        denom  = <span class="code-num">1.0</span> + m * s2
+        lt     = math.exp(-m * nu / denom) / denom
+        s     += sign * binom * lt
+        sign  *= <span class="code-num">-1.0</span>
+    pe = <span class="code-num">1.0</span> - s
+    <span class="code-kw">return</span> pe <span class="code-kw">if</span> <span class="code-num">0.0</span> &lt;= pe &lt;= <span class="code-num">1.0</span> <span class="code-kw">else</span> float(<span class="code-num">'nan'</span>)
+
+<span class="code-fn">def</span> <span class="code-fn">Pe_exact_quad</span>(N, theta_deg, SNR, K=<span class="code-num">10</span>, Nant=<span class="code-num">128</span>):
+    <span class="code-cm">"""Numerically stable for all N. Uses scipy quad — no cancellation."""</span>
+    G  = beam_gain(N, theta_deg, Nant)
+    nu = G * SNR * K / (K + <span class="code-num">1</span>)
+    s2 = G * SNR / (K + <span class="code-num">1</span>) + <span class="code-num">1.0</span>
+    <span class="code-fn">def</span> <span class="code-fn">integrand</span>(y):
+        <span class="code-kw">if</span> y &lt;= <span class="code-num">0</span>: <span class="code-kw">return</span> <span class="code-num">0.0</span>
+        arg    = <span class="code-num">2.0</span> * math.sqrt(nu * y) / s2
+        log_i0 = (arg - <span class="code-num">0.5</span>*math.log(<span class="code-num">2</span>*math.pi*arg)
+                  <span class="code-kw">if</span> arg &gt; <span class="code-num">500</span> <span class="code-kw">else</span>
+                  math.log(float(i0(arg))) <span class="code-kw">if</span> arg &gt; <span class="code-num">0</span> <span class="code-kw">else</span> <span class="code-num">0.0</span>)
+        <span class="code-kw">return</span> ((<span class="code-num">1</span> - math.exp(-y))**(N-<span class="code-num">1</span>) *
+                math.exp(-math.log(s2) - (nu+y)/s2 + log_i0))
+    upper  = max(<span class="code-num">50.0</span>, <span class="code-num">30</span>*s2 + <span class="code-num">30</span>*nu)
+    hints  = [s2, <span class="code-num">2</span>*s2] + ([nu] <span class="code-kw">if</span> nu &gt; <span class="code-num">0.1</span> <span class="code-kw">else</span> [])
+    val, _ = quad(integrand, <span class="code-num">0</span>, upper, limit=<span class="code-num">200</span>,
+                  epsabs=<span class="code-num">1e-12</span>, epsrel=<span class="code-num">1e-10</span>, points=hints)
+    <span class="code-kw">return</span> <span class="code-num">1.0</span> - val</pre>
+
+<pre class="code-block" id="tab1"><span class="code-cm"># Harmonic approximation — valid when G(N,θ)·SNR ≫ K+1
+# Underestimates Pe; useful for analytical insight into ln N scaling.</span>
+
+<span class="code-fn">def</span> <span class="code-fn">harmonic</span>(n):
+    <span class="code-kw">return</span> sum(<span class="code-num">1.0</span>/k <span class="code-kw">for</span> k <span class="code-kw">in</span> range(<span class="code-num">1</span>, n+<span class="code-num">1</span>)) <span class="code-kw">if</span> n &gt;= <span class="code-num">1</span> <span class="code-kw">else</span> <span class="code-num">0.0</span>
+
+<span class="code-fn">def</span> <span class="code-fn">Pe_harmonic</span>(N, theta_deg, SNR, K=<span class="code-num">10</span>, Nant=<span class="code-num">128</span>):
+    <span class="code-cm">"""Pe ≈ (K+1)·exp(-K)·H_{N-1} / (G·SNR)"""</span>
+    G = beam_gain(N, theta_deg, Nant)
+    <span class="code-kw">return</span> (K+<span class="code-num">1</span>) * math.exp(-K) * harmonic(N-<span class="code-num">1</span>) / (G * SNR)
+
+<span class="code-cm"># For N in [2, 128]:
+# Pe_harmonic underestimates Pe_exact by 10–80% depending on G·SNR.
+# The approximation improves as G·SNR / (K+1) grows.</span></pre>
+
+<pre class="code-block" id="tab2"><span class="code-cm"># Optimal number of layers — Propositions 1, 2, 3
+# Uses scipy.special.lambertw for the Lambert-W function.</span>
+
+<span class="code-kw">import</span> math
+<span class="code-kw">from</span> scipy.special <span class="code-kw">import</span> lambertw
+
+<span class="code-fn">def</span> <span class="code-fn">L_opt_resource</span>(X):
+    <span class="code-cm">"""Proposition 1: resource-optimal depth (c=0)."""</span>
+    <span class="code-kw">return</span> math.log(X)
+
+<span class="code-fn">def</span> <span class="code-fn">L_opt_A</span>(X, c):
+    <span class="code-cm">"""Proposition 2 (Option A): equal inter-layer intervals c."""</span>
+    W = lambertw(c / math.e).real
+    <span class="code-kw">return</span> math.log(X) / (<span class="code-num">1</span> + W)
+
+<span class="code-fn">def</span> <span class="code-fn">L_opt_B</span>(X, c1):
+    <span class="code-cm">"""Proposition 3 (Option B): fixed period c1 between sweep starts."""</span>
+    <span class="code-kw">if</span> X &lt;= <span class="code-num">1</span>: <span class="code-kw">return</span> <span class="code-num">1.0</span>
+    arg = math.sqrt(c1 * math.log(X)) / <span class="code-num">2.0</span>
+    W   = lambertw(arg).real
+    <span class="code-kw">return</span> math.log(X) / (<span class="code-num">2.0</span> * W) <span class="code-kw">if</span> W &gt; <span class="code-num">0</span> <span class="code-kw">else</span> <span class="code-num">1.0</span>
+
+<span class="code-fn">def</span> <span class="code-fn">N_opt</span>(X, L):
+    <span class="code-cm">"""Optimal beams per layer for given L."""</span>
+    <span class="code-kw">return</span> X ** (<span class="code-num">1.0</span> / L)
+
+<span class="code-cm"># Example: X=128, c1=74 (NR numerology 0, 10 ms burst)
+# L* ≈ L_opt_B(128, 74) ≈ 2.4 → use L=2 or L=3
+# N* ≈ N_opt(128, 2.4) ≈ 6.7 → use N=7</span></pre>
+
+<pre class="code-block" id="tab3"><span class="code-cm"># Reliability constraint check — exact and harmonic
+# Option B: sector narrows as theta_ell = theta0/(N-1)^{ell-1}</span>
+
+<span class="code-fn">def</span> <span class="code-fn">geo_sum</span>(N, L):
+    <span class="code-cm">"""sum_{ell=1}^{L} 1/(N-1)^ell"""</span>
+    <span class="code-kw">if</span> N - <span class="code-num">1</span> &lt;= <span class="code-num">1</span>: <span class="code-kw">return</span> float(L)
+    <span class="code-kw">return</span> (<span class="code-num">1.0</span> - <span class="code-num">1.0</span>/(N-<span class="code-num">1</span>)**L) / (N - <span class="code-num">2</span>)
+
+<span class="code-fn">def</span> <span class="code-fn">reliability_exact</span>(L, X, SNR, K=<span class="code-num">10</span>, theta0=<span class="code-num">120.0</span>,
+                         Nant=<span class="code-num">128</span>, epsilon=<span class="code-num">0.01</span>):
+    <span class="code-cm">"""prod_{ell=1}^{L} (1-Pe_exact(ell)) >= 1-epsilon"""</span>
+    N = X**(<span class="code-num">1.0</span>/L)
+    <span class="code-kw">if</span> N &lt; <span class="code-num">2</span>: <span class="code-kw">return</span> <span class="code-kw">False</span>
+    log_prod = <span class="code-num">0.0</span>
+    <span class="code-kw">for</span> ell <span class="code-kw">in</span> range(<span class="code-num">1</span>, L+<span class="code-num">1</span>):
+        th  = theta0 / (N-<span class="code-num">1</span>)**(ell-<span class="code-num">1</span>)
+        pe  = Pe_exact_quad(N, th, SNR, K, Nant)
+        log_prod += math.log(max(<span class="code-num">1.0</span> - pe, <span class="code-num">1e-15</span>))
+    <span class="code-kw">return</span> log_prod &gt;= math.log(<span class="code-num">1.0</span> - epsilon)
+
+<span class="code-fn">def</span> <span class="code-fn">reliability_harmonic</span>(L, X, SNR, K=<span class="code-num">10</span>, theta0=<span class="code-num">120.0</span>,
+                           Nant=<span class="code-num">128</span>, epsilon=<span class="code-num">0.01</span>):
+    <span class="code-cm">"""Closed-form sufficient condition (harmonic approx, high SNR)."""</span>
+    N   = X**(<span class="code-num">1.0</span>/L)
+    <span class="code-kw">if</span> N &lt; <span class="code-num">2</span>: <span class="code-kw">return</span> <span class="code-kw">False</span>
+    H   = harmonic(max(<span class="code-num">1</span>, round(N)-<span class="code-num">1</span>))
+    lhs = (K+<span class="code-num">1</span>)*math.exp(-K)*H*theta0/(<span class="code-num">101.5</span>*SNR)*geo_sum(N, L)
+    <span class="code-kw">return</span> lhs &lt;= epsilon</pre>
+    </div>
+    <div class="modal__footer">
+      <button class="btn btn--sm" id="modal-copy-btn" onclick="copyModalTab()">Copy</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ SCRIPTS ═══════════════════════════════════════ -->
+<script>
+// ── Lambert-W via Newton iterations ──────────────────────────────────────────
+function lambertW(x) {
+  if (x <= 0) return 0;
+  let w = x < 1 ? x : Math.log(x);
+  for (let i = 0; i < 12; i++) {
+    const ew = Math.exp(w);
+    w -= (w * ew - x) / (ew * (w + 1) - (w + 2) * (w * ew - x) / (2 * w + 2));
+  }
+  return w;
+}
+
+// ── Core math ─────────────────────────────────────────────────────────────────
+function beamGain(N, thetaDeg, Nant) {
+  return Math.min(Nant, 101.5 * (N - 1) / thetaDeg);
+}
+function harmonic(n) {
+  let h = 0; for (let k = 1; k <= n; k++) h += 1 / k; return h;
+}
+function geoSum(N, L) {
+  if (N - 1 <= 1) return L;
+  return (1 - Math.pow(N - 1, -L)) / (N - 2);
+}
+function LoptB(X, c1) {
+  if (X <= 1) return 1;
+  const arg = Math.sqrt(c1 * Math.log(X)) / 2;
+  const W = lambertW(arg);
+  return W > 0 ? Math.log(X) / (2 * W) : 1;
+}
+function delayB(L, X, c1) {
+  return Math.ceil(Math.pow(X, 1 / L)) + c1 * (L - 1);
+}
+
+// ── Exact Pe (recursive binom, float64, reliable N≤48) ───────────────────────
+function Pe_exact(N, thetaDeg, SNR, K, Nant) {
+  const G  = beamGain(N, thetaDeg, Nant);
+  if (G <= 0 || N < 2) return 1;
+  const nu = G * SNR * K / (K + 1);
+  const s2 = G * SNR / (K + 1) + 1;
+  let s = 1, binom = 1, sign = -1;
+  for (let m = 1; m < N; m++) {
+    binom *= (N - m) / m;
+    const denom = 1 + m * s2;
+    s += sign * binom * Math.exp(-m * nu / denom) / denom;
+    sign *= -1;
+  }
+  const pe = 1 - s;
+  return (pe >= 0 && pe <= 1) ? pe : NaN;
+}
+
+// ── Harmonic Pe approximation ─────────────────────────────────────────────────
+function Pe_harm(N, thetaDeg, SNR, K, Nant) {
+  const G = beamGain(N, thetaDeg, Nant);
+  if (G <= 0 || N < 2) return 1;
+  return (K + 1) * Math.exp(-K) * harmonic(N - 1) / (G * SNR);
+}
+
+// ── Reliability checks ────────────────────────────────────────────────────────
+function reliabilityExact(L, X, SNR, K, theta0, Nant, eps) {
+  const N = Math.pow(X, 1 / L);
+  if (N < 2) return false;
+  let logProd = 0;
+  for (let ell = 1; ell <= L; ell++) {
+    const th = theta0 / Math.pow(N - 1, ell - 1);
+    const pe = Pe_exact(N, th, SNR, K, Nant);
+    logProd += Math.log(Math.max(1 - (isNaN(pe) ? 0.5 : pe), 1e-15));
+  }
+  return logProd >= Math.log(1 - eps);
+}
+function reliabilityHarmonic(L, X, SNR, K, theta0, Nant, eps) {
+  const N = Math.pow(X, 1 / L);
+  if (N < 2) return false;
+  const H = harmonic(Math.max(1, Math.round(N) - 1));
+  const lhs = (K + 1) * Math.exp(-K) * H * theta0 / (101.5 * SNR) * geoSum(N, L);
+  return lhs <= eps;
+}
+
+// ── Find best discrete L ──────────────────────────────────────────────────────
+function bestDiscrete(X, c1, SNR, K, theta0, Nant, eps) {
+  const Lc = LoptB(X, c1);
+  const range = [];
+  for (let L = Math.max(1, Math.floor(Lc) - 1); L <= Math.floor(Lc) + 5; L++) range.push(L);
+  let bu = {L:1, T:Infinity}, be = {L:null, T:Infinity}, bh = {L:null, T:Infinity};
+  for (const L of range) {
+    const T = delayB(L, X, c1);
+    if (T < bu.T) bu = {L, T};
+    if (reliabilityExact(L, X, SNR, K, theta0, Nant, eps) && T < be.T) be = {L, T};
+    if (reliabilityHarmonic(L, X, SNR, K, theta0, Nant, eps) && T < bh.T) bh = {L, T};
+  }
+  for (let L = 1; L <= 60; L++) {
+    const T = delayB(L, X, c1);
+    if (!be.L && reliabilityExact(L, X, SNR, K, theta0, Nant, eps)) be = {L, T};
+    if (!bh.L && reliabilityHarmonic(L, X, SNR, K, theta0, Nant, eps)) bh = {L, T};
+    if (be.L && bh.L) break;
+  }
+  return {bu, be, bh};
+}
+
+// ── Main computation ──────────────────────────────────────────────────────────
+let myChart = null;
+function runCalc() {
+  const sp = document.getElementById('spinner');
+  sp.classList.add('active');
+  setTimeout(() => {
+    try { _doCalc(); } catch(e) { console.error(e); }
+    sp.classList.remove('active');
+  }, 20);
+}
+
+function _doCalc() {
+  const v = id => parseFloat(document.getElementById(id).value);
+  const xmin = v('xmin'), xmax = v('xmax'), npts = parseInt(document.getElementById('xpts').value);
+  const fc_GHz = v('fc'), dist = v('dist'), Ptx_dBm = v('ptx'), NF_dB = v('nf'), B_MHz = v('bw');
+  const K = v('kric'), Nant = parseInt(document.getElementById('nant').value);
+  const theta0 = v('theta0'), eps = v('epsilon'), Tc_ms = v('tc');
+
+  const lam = 3e8 / (fc_GHz * 1e9);
+  const PL = Math.pow(lam / (4 * Math.PI * dist), 2);
+  const Ptx_W = Math.pow(10, (Ptx_dBm - 30) / 10);
+  const Prx_W = Ptx_W * PL;
+  const noise_W = 4e-21 * Math.pow(10, NF_dB / 10) * B_MHz * 1e6;
+  const SNR = Prx_W / noise_W;
+  const SNR_dB = 10 * Math.log10(SNR);
+
+  const selEl = document.getElementById('numsel');
+  const symUs = selEl.value === 'custom'
+    ? parseFloat(document.getElementById('customsym').value)
+    : parseFloat(selEl.value);
+  const c1 = Math.floor(Tc_ms * 1000 / (2 * symUs));
+  const scale = 2 * symUs / 1e3; // beam-tx → ms
+
+  // Log-spaced X values
+  const Xvals = [];
+  for (let i = 0; i < npts; i++) {
+    const X = Math.round(Math.pow(10, Math.log10(xmin) + i * (Math.log10(xmax) - Math.log10(xmin)) / (npts - 1)));
+    if (!Xvals.includes(X) && X >= 2) Xvals.push(X);
+  }
+
+  const Tu = [], Te = [], Th = [], Tlb = [];
+  for (const X of Xvals) {
+    const r = bestDiscrete(X, c1, SNR, K, theta0, Nant, eps);
+    Tu.push(r.bu.T * scale);
+    Te.push(r.be.L ? r.be.T * scale : null);
+    Th.push(r.bh.L ? r.bh.T * scale : null);
+    const Lc = LoptB(X, c1);
+    Tlb.push((Math.pow(X, 1/Lc) + c1*(Lc-1)) * scale);
+  }
+
+  const Lstar = LoptB(xmax, c1);
+  const Nstar = Math.pow(xmax, 1/Lstar);
+  const summ = document.getElementById('calc-summary');
+  summ.innerHTML = `<strong>SNR</strong> ${SNR_dB.toFixed(1)} dB&nbsp;,&nbsp; `
+    + `<strong>c₁=</strong> ${c1}&nbsp;,&nbsp; `
+    + `<strong>L*(X=${xmax.toLocaleString()})</strong> = ${Lstar.toFixed(2)} → ${Math.ceil(Lstar)}&nbsp;,&nbsp; `
+    + `<strong>N*(X=${xmax.toLocaleString()})</strong> = ${Nstar.toFixed(1)}`;
+  summ.classList.add('visible');
+
+  const ctx = document.getElementById('delay-chart').getContext('2d');
+  if (myChart) myChart.destroy();
+  myChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: Xvals,
+      datasets: [
+        { label: 'Lower bound (continuous)', data: Tlb, borderColor:'#6b7280', borderDash:[6,3], borderWidth:1.2, pointRadius:0, tension:.2, spanGaps:true },
+        { label: 'Unconstrained discrete', data: Tu, borderColor:'#1d4ed8', borderWidth:1.8, pointRadius:0, tension:.1, spanGaps:true },
+        { label: `Exact constraint (ε=${eps})`, data: Te, borderColor:'#059669', borderDash:[4,3], borderWidth:1.8, pointRadius:0, tension:.1, spanGaps:true },
+        { label: 'Harmonic constraint', data: Th, borderColor:'#d97706', borderDash:[2,3], borderWidth:1.5, pointRadius:0, tension:.1, spanGaps:true },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:true,
+      scales:{
+        x:{ type:'logarithmic', title:{display:true,text:'Codebook size X'}, ticks:{callback:v=>Number.isInteger(Math.log10(v))?v.toLocaleString():''} },
+        y:{ min:0, title:{display:true,text:'Delay [ms]'} }
+      },
+      plugins:{legend:{labels:{font:{size:11}}}}
+    }
+  });
+}
+
+document.getElementById('numsel').addEventListener('change', function() {
+  document.getElementById('custom-sym-field').style.display = this.value === 'custom' ? '' : 'none';
+});
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function copyBibtex() {
+  navigator.clipboard.writeText(document.getElementById('bibtex-block').textContent);
+  const btn = event.target; btn.textContent = 'Copied!';
+  setTimeout(()=>btn.textContent='Copy BibTeX', 1800);
+}
+function openModal()  { document.getElementById('modal').classList.add('open'); }
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+
+let activeTab = 0;
+function switchTab(i) {
+  document.querySelectorAll('.tab-btn').forEach((b,j)=>b.classList.toggle('active',j===i));
+  document.querySelectorAll('.code-block').forEach((b,j)=>b.classList.toggle('active',j===i));
+  activeTab = i;
+}
+function copyModalTab() {
+  const block = document.querySelectorAll('.code-block')[activeTab];
+  navigator.clipboard.writeText(block.innerText);
+  const btn = document.getElementById('modal-copy-btn');
+  btn.textContent='Copied!'; setTimeout(()=>btn.textContent='Copy',1800);
+}
+
+// Run on load with defaults
+window.addEventListener('load', runCalc);
+</script>
+</body>
+</html>
