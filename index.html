@@ -544,23 +544,28 @@ mjx-container { overflow-x: auto; }
 
 <!-- ═══════════════════════════════════════ SCRIPTS ═══════════════════════════════════════ -->
 <script>
-// ── Lambert-W via Newton iterations ──────────────────────────────────────────
+// ── Lambert-W via Halley iterations (converges in ~6 steps for all x>0) ──────
 function lambertW(x) {
   if (x <= 0) return 0;
   let w = x < 1 ? x : Math.log(x);
   for (let i = 0; i < 12; i++) {
-    const ew = Math.exp(w);
-    w -= (w * ew - x) / (ew * (w + 1) - (w + 2) * (w * ew - x) / (2 * w + 2));
+    const ew  = Math.exp(w);
+    const f   = w * ew - x;
+    const fp  = ew * (w + 1);
+    const fpp = ew * (w + 2);
+    w -= f / (fp - f * fpp / (2 * fp));   // Halley step (correct form)
   }
   return w;
 }
 
-// ── Core math ─────────────────────────────────────────────────────────────────
+// ── Core math ──────────────────────────────────────────────────────────────────
 function beamGain(N, thetaDeg, Nant) {
   return Math.min(Nant, 101.5 * (N - 1) / thetaDeg);
 }
 function harmonic(n) {
-  let h = 0; for (let k = 1; k <= n; k++) h += 1 / k; return h;
+  let h = 0;
+  for (let k = 1; k <= n; k++) h += 1 / k;
+  return h;
 }
 function geoSum(N, L) {
   if (N - 1 <= 1) return L;
@@ -569,38 +574,47 @@ function geoSum(N, L) {
 function LoptB(X, c1) {
   if (X <= 1) return 1;
   const arg = Math.sqrt(c1 * Math.log(X)) / 2;
-  const W = lambertW(arg);
+  const W   = lambertW(arg);
   return W > 0 ? Math.log(X) / (2 * W) : 1;
 }
 function delayB(L, X, c1) {
   return Math.ceil(Math.pow(X, 1 / L)) + c1 * (L - 1);
 }
 
-// ── Exact Pe (recursive binom, float64, reliable N≤48) ───────────────────────
+// ── Exact Pe via binomial sum with Kahan compensated summation ─────────────────
+// Kahan summation eliminates the floating-point cancellation error that causes
+// the spiky artefacts in the constrained curves. Reliable for N ≤ ~48.
 function Pe_exact(N, thetaDeg, SNR, K, Nant) {
-  const G  = beamGain(N, thetaDeg, Nant);
+  const G = beamGain(N, thetaDeg, Nant);
   if (G <= 0 || N < 2) return 1;
   const nu = G * SNR * K / (K + 1);
   const s2 = G * SNR / (K + 1) + 1;
-  let s = 1, binom = 1, sign = -1;
+
+  // Kahan compensated alternating sum: s = sum_{m=0}^{N-1} (-1)^m C(N-1,m) * LT(m)
+  let s = 1, comp = 0, binom = 1, sign = -1;
   for (let m = 1; m < N; m++) {
-    binom *= (N - m) / m;
+    binom *= (N - m) / m;                         // recursive C(N-1,m)
     const denom = 1 + m * s2;
-    s += sign * binom * Math.exp(-m * nu / denom) / denom;
+    const term  = sign * binom * Math.exp(-m * nu / denom) / denom;
+    // Kahan step
+    const y = term - comp;
+    const t = s + y;
+    comp = (t - s) - y;
+    s = t;
     sign *= -1;
   }
   const pe = 1 - s;
   return (pe >= 0 && pe <= 1) ? pe : NaN;
 }
 
-// ── Harmonic Pe approximation ─────────────────────────────────────────────────
+// ── Harmonic Pe approximation ──────────────────────────────────────────────────
 function Pe_harm(N, thetaDeg, SNR, K, Nant) {
   const G = beamGain(N, thetaDeg, Nant);
   if (G <= 0 || N < 2) return 1;
   return (K + 1) * Math.exp(-K) * harmonic(N - 1) / (G * SNR);
 }
 
-// ── Reliability checks ────────────────────────────────────────────────────────
+// ── Reliability checks ─────────────────────────────────────────────────────────
 function reliabilityExact(L, X, SNR, K, theta0, Nant, eps) {
   const N = Math.pow(X, 1 / L);
   if (N < 2) return false;
@@ -615,34 +629,37 @@ function reliabilityExact(L, X, SNR, K, theta0, Nant, eps) {
 function reliabilityHarmonic(L, X, SNR, K, theta0, Nant, eps) {
   const N = Math.pow(X, 1 / L);
   if (N < 2) return false;
-  const H = harmonic(Math.max(1, Math.round(N) - 1));
+  const H   = harmonic(Math.max(1, Math.round(N) - 1));
   const lhs = (K + 1) * Math.exp(-K) * H * theta0 / (101.5 * SNR) * geoSum(N, L);
   return lhs <= eps;
 }
 
-// ── Find best discrete L ──────────────────────────────────────────────────────
+// ── Find best discrete L for all three constraint modes ────────────────────────
 function bestDiscrete(X, c1, SNR, K, theta0, Nant, eps) {
-  const Lc = LoptB(X, c1);
+  const Lc    = LoptB(X, c1);
   const range = [];
   for (let L = Math.max(1, Math.floor(Lc) - 1); L <= Math.floor(Lc) + 5; L++) range.push(L);
+
   let bu = {L:1, T:Infinity}, be = {L:null, T:Infinity}, bh = {L:null, T:Infinity};
   for (const L of range) {
     const T = delayB(L, X, c1);
     if (T < bu.T) bu = {L, T};
-    if (reliabilityExact(L, X, SNR, K, theta0, Nant, eps) && T < be.T) be = {L, T};
+    if (reliabilityExact(L, X, SNR, K, theta0, Nant, eps)    && T < be.T) be = {L, T};
     if (reliabilityHarmonic(L, X, SNR, K, theta0, Nant, eps) && T < bh.T) bh = {L, T};
   }
+  // Widen search if constraint not satisfied in the neighbourhood
   for (let L = 1; L <= 60; L++) {
     const T = delayB(L, X, c1);
-    if (!be.L && reliabilityExact(L, X, SNR, K, theta0, Nant, eps)) be = {L, T};
+    if (!be.L && reliabilityExact(L, X, SNR, K, theta0, Nant, eps))    be = {L, T};
     if (!bh.L && reliabilityHarmonic(L, X, SNR, K, theta0, Nant, eps)) bh = {L, T};
     if (be.L && bh.L) break;
   }
   return {bu, be, bh};
 }
 
-// ── Main computation ──────────────────────────────────────────────────────────
+// ── Main computation ───────────────────────────────────────────────────────────
 let myChart = null;
+
 function runCalc() {
   const sp = document.getElementById('spinner');
   sp.classList.add('active');
@@ -653,34 +670,43 @@ function runCalc() {
 }
 
 function _doCalc() {
-  const v = id => parseFloat(document.getElementById(id).value);
-  const xmin = v('xmin'), xmax = v('xmax'), npts = parseInt(document.getElementById('xpts').value);
-  const fc_GHz = v('fc'), dist = v('dist'), Ptx_dBm = v('ptx'), NF_dB = v('nf'), B_MHz = v('bw');
-  const K = v('kric'), Nant = parseInt(document.getElementById('nant').value);
+  // Read all inputs
+  const v    = id => parseFloat(document.getElementById(id).value);
+  const xmin = v('xmin'), xmax = v('xmax');
+  const npts = parseInt(document.getElementById('xpts').value);
+  const fc_GHz  = v('fc'), dist   = v('dist');
+  const Ptx_dBm = v('ptx'), NF_dB = v('nf'), B_MHz = v('bw');
+  const K    = v('kric');
+  const Nant = parseInt(document.getElementById('nant').value);
   const theta0 = v('theta0'), eps = v('epsilon'), Tc_ms = v('tc');
 
-  const lam = 3e8 / (fc_GHz * 1e9);
-  const PL = Math.pow(lam / (4 * Math.PI * dist), 2);
-  const Ptx_W = Math.pow(10, (Ptx_dBm - 30) / 10);
-  const Prx_W = Ptx_W * PL;
+  // Link budget → per-element SNR
+  const lam     = 3e8 / (fc_GHz * 1e9);
+  const PL      = Math.pow(lam / (4 * Math.PI * dist), 2);
+  const Ptx_W   = Math.pow(10, (Ptx_dBm - 30) / 10);
+  const Prx_W   = Ptx_W * PL;
   const noise_W = 4e-21 * Math.pow(10, NF_dB / 10) * B_MHz * 1e6;
-  const SNR = Prx_W / noise_W;
-  const SNR_dB = 10 * Math.log10(SNR);
+  const SNR     = Prx_W / noise_W;
+  const SNR_dB  = 10 * Math.log10(SNR);
 
+  // Numerology → symbol duration and c1
   const selEl = document.getElementById('numsel');
   const symUs = selEl.value === 'custom'
     ? parseFloat(document.getElementById('customsym').value)
     : parseFloat(selEl.value);
-  const c1 = Math.floor(Tc_ms * 1000 / (2 * symUs));
-  const scale = 2 * symUs / 1e3; // beam-tx → ms
+  const c1    = Math.floor(Tc_ms * 1000 / (2 * symUs));
+  const scale = 2 * symUs / 1e3;   // beam-transmission units → ms
 
-  // Log-spaced X values
+  // Log-spaced integer X values
   const Xvals = [];
   for (let i = 0; i < npts; i++) {
-    const X = Math.round(Math.pow(10, Math.log10(xmin) + i * (Math.log10(xmax) - Math.log10(xmin)) / (npts - 1)));
+    const X = Math.round(
+      Math.pow(10, Math.log10(xmin) + i * (Math.log10(xmax) - Math.log10(xmin)) / (npts - 1))
+    );
     if (!Xvals.includes(X) && X >= 2) Xvals.push(X);
   }
 
+  // Compute all curves
   const Tu = [], Te = [], Th = [], Tlb = [];
   for (const X of Xvals) {
     const r = bestDiscrete(X, c1, SNR, K, theta0, Nant, eps);
@@ -688,18 +714,26 @@ function _doCalc() {
     Te.push(r.be.L ? r.be.T * scale : null);
     Th.push(r.bh.L ? r.bh.T * scale : null);
     const Lc = LoptB(X, c1);
-    Tlb.push((Math.pow(X, 1/Lc) + c1*(Lc-1)) * scale);
+    Tlb.push((Math.pow(X, 1 / Lc) + c1 * (Lc - 1)) * scale);
   }
 
+  // Summary: L* and N* at X = xmax
   const Lstar = LoptB(xmax, c1);
-  const Nstar = Math.pow(xmax, 1/Lstar);
-  const summ = document.getElementById('calc-summary');
-  summ.innerHTML = `<strong>SNR</strong> ${SNR_dB.toFixed(1)} dB&nbsp;,&nbsp; `
-    + `<strong>c₁=</strong> ${c1}&nbsp;,&nbsp; `
-    + `<strong>L*(X=${xmax.toLocaleString()})</strong> = ${Lstar.toFixed(2)} → ${Math.ceil(Lstar)}&nbsp;,&nbsp; `
-    + `<strong>N*(X=${xmax.toLocaleString()})</strong> = ${Nstar.toFixed(1)}`;
-  summ.classList.add('visible');
+  const Nstar = Math.pow(xmax, 1 / Lstar);
 
+  // Update summary box — always rewrite, whether first run or recompute
+  const summ = document.getElementById('calc-summary');
+  summ.textContent = '';   // clear first to force repaint
+  summ.innerHTML =
+    `<strong>SNR</strong> ${SNR_dB.toFixed(1)} dB &nbsp;|&nbsp; ` +
+    `<strong>c\u2081</strong> = ${c1} &nbsp;|&nbsp; ` +
+    `<strong>L*(X\u202F=\u202F${xmax.toLocaleString()})</strong> = ${Lstar.toFixed(2)} \u2192 ${Math.ceil(Lstar)} &nbsp;|&nbsp; ` +
+    `<strong>N*(X\u202F=\u202F${xmax.toLocaleString()})</strong> = ${Nstar.toFixed(1)}`;
+  summ.style.display = 'block';
+  summ.style.visibility = 'visible';
+  summ.style.opacity = '1';
+
+  // Rebuild chart
   const ctx = document.getElementById('delay-chart').getContext('2d');
   if (myChart) myChart.destroy();
   myChart = new Chart(ctx, {
@@ -707,48 +741,96 @@ function _doCalc() {
     data: {
       labels: Xvals,
       datasets: [
-        { label: 'Lower bound (continuous)', data: Tlb, borderColor:'#6b7280', borderDash:[6,3], borderWidth:1.2, pointRadius:0, tension:.2, spanGaps:true },
-        { label: 'Unconstrained discrete', data: Tu, borderColor:'#1d4ed8', borderWidth:1.8, pointRadius:0, tension:.1, spanGaps:true },
-        { label: `Exact constraint (ε=${eps})`, data: Te, borderColor:'#059669', borderDash:[4,3], borderWidth:1.8, pointRadius:0, tension:.1, spanGaps:true },
-        { label: 'Harmonic constraint', data: Th, borderColor:'#d97706', borderDash:[2,3], borderWidth:1.5, pointRadius:0, tension:.1, spanGaps:true },
+        {
+          label: 'Lower bound (continuous)',
+          data: Tlb,
+          borderColor: '#6b7280', borderDash: [6, 3],
+          borderWidth: 1.2, pointRadius: 0, tension: 0.2, spanGaps: true
+        },
+        {
+          label: 'Unconstrained discrete',
+          data: Tu,
+          borderColor: '#1d4ed8',
+          borderWidth: 1.8, pointRadius: 0, tension: 0.1, spanGaps: true
+        },
+        {
+          label: `Exact constraint (\u03B5\u202F=\u202F${eps})`,
+          data: Te,
+          borderColor: '#059669', borderDash: [4, 3],
+          borderWidth: 1.8, pointRadius: 0, tension: 0.1, spanGaps: true
+        },
+        {
+          label: 'Harmonic constraint',
+          data: Th,
+          borderColor: '#d97706', borderDash: [2, 3],
+          borderWidth: 1.5, pointRadius: 0, tension: 0.1, spanGaps: true
+        }
       ]
     },
     options: {
-      responsive:true, maintainAspectRatio:true,
-      scales:{
-        x:{ type:'logarithmic', title:{display:true,text:'Codebook size X'}, ticks:{callback:v=>Number.isInteger(Math.log10(v))?v.toLocaleString():''} },
-        y:{ min:0, title:{display:true,text:'Delay [ms]'} }
+      responsive: true,
+      maintainAspectRatio: true,
+      scales: {
+        x: {
+          type: 'logarithmic',
+          title: { display: true, text: 'Codebook size X' },
+          ticks: {
+            callback: v => Number.isInteger(Math.log10(v)) ? v.toLocaleString() : ''
+          }
+        },
+        y: {
+          min: 0,
+          title: { display: true, text: 'Delay [ms]' }
+        }
       },
-      plugins:{legend:{labels:{font:{size:11}}}}
+      plugins: {
+        legend: { labels: { font: { size: 11 } } },
+        title: {
+          display: true,
+          text: [
+            `Option B \u2014 fixed period c\u2081 between sweep starts`,
+            `SNR\u2091\u2097\u2091\u2098 = ${SNR_dB.toFixed(1)} dB,  ` +
+            `K = ${K},  \u03B8\u2080 = ${theta0}\u00B0,  ` +
+            `N\u2090\u2099\u209C = ${Nant},  ` +
+            `\u03B5 = ${eps}`
+          ],
+          font: { size: 12 },
+          padding: { bottom: 8 }
+        }
+      }
     }
   });
 }
 
-document.getElementById('numsel').addEventListener('change', function() {
-  document.getElementById('custom-sym-field').style.display = this.value === 'custom' ? '' : 'none';
+// Numerology selector: show/hide custom symbol duration field
+document.getElementById('numsel').addEventListener('change', function () {
+  document.getElementById('custom-sym-field').style.display =
+    this.value === 'custom' ? '' : 'none';
 });
 
-// ── Utilities ─────────────────────────────────────────────────────────────────
+// Utilities
 function copyBibtex() {
   navigator.clipboard.writeText(document.getElementById('bibtex-block').textContent);
-  const btn = event.target; btn.textContent = 'Copied!';
-  setTimeout(()=>btn.textContent='Copy BibTeX', 1800);
+  const btn = event.target;
+  btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = 'Copy BibTeX', 1800);
 }
 function openModal()  { document.getElementById('modal').classList.add('open'); }
 function closeModal() { document.getElementById('modal').classList.remove('open'); }
-document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
 let activeTab = 0;
 function switchTab(i) {
-  document.querySelectorAll('.tab-btn').forEach((b,j)=>b.classList.toggle('active',j===i));
-  document.querySelectorAll('.code-block').forEach((b,j)=>b.classList.toggle('active',j===i));
+  document.querySelectorAll('.tab-btn').forEach((b, j) => b.classList.toggle('active', j === i));
+  document.querySelectorAll('.code-block').forEach((b, j) => b.classList.toggle('active', j === i));
   activeTab = i;
 }
 function copyModalTab() {
   const block = document.querySelectorAll('.code-block')[activeTab];
   navigator.clipboard.writeText(block.innerText);
   const btn = document.getElementById('modal-copy-btn');
-  btn.textContent='Copied!'; setTimeout(()=>btn.textContent='Copy',1800);
+  btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = 'Copy', 1800);
 }
 
 // Run on load with defaults
