@@ -1,9 +1,11 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Hierarchical Beam Search: Optimization and Scaling</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231d4ed8'/%3E%3Ccircle cx='18' cy='32' r='5' fill='white'/%3E%3Cpath d='M27 22c6 5 6 15 0 20M36 14c11 10 11 26 0 36M45 8c16 14 16 34 0 48' fill='none' stroke='white' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M18 32h28' stroke='white' stroke-width='3' stroke-linecap='round' opacity='.55'/%3E%3C/svg%3E">
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
@@ -64,10 +66,16 @@ a:hover { text-decoration: underline; }
 
 /* ── Hero ── */
 .hero { padding: 7rem 0 5rem; }
+.hero .container {
+  max-width: none;
+  margin: 0 clamp(2rem, 9vw, 9rem);
+  padding: 0;
+  text-align: center;
+}
 .hero__meta { font-size: .8rem; color: var(--text3); margin-bottom: 2.5rem; letter-spacing: .02em; }
 .hero__authors { font-family: var(--serif); font-size: 1rem; color: var(--text2); margin: 1.5rem 0 2.5rem; font-style: italic; }
-.hero__sub { font-size: 1.05rem; color: var(--text2); max-width: 680px; margin: 1.25rem 0 2.5rem; line-height: 1.7; font-family: var(--serif); font-style: italic; }
-.hero__btns { display: flex; gap: .75rem; flex-wrap: wrap; }
+.hero__sub { font-size: 1.05rem; color: var(--text2); max-width: 820px; margin: 1.25rem auto 2.5rem; line-height: 1.7; font-family: var(--serif); font-style: italic; }
+.hero__btns { display: flex; justify-content: center; gap: .75rem; flex-wrap: wrap; }
 .btn {
   display: inline-flex; align-items: center; gap: .4rem;
   padding: .55rem 1.25rem; border-radius: var(--radius);
@@ -89,7 +97,7 @@ a:hover { text-decoration: underline; }
 .video-wrap { position: relative; width: 100%; max-width: 800px; margin: 0 auto; border-radius: var(--radius); overflow: hidden; background: #000; }
 .video-wrap::before { content: ''; display: block; padding-top: 56.25%; }
 .video-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-.video-caption { text-align: center; font-size: .82rem; color: var(--text3); margin-top: 1rem; font-style: italic; }
+.video-caption { text-align: center; font-size: .82rem; color: var(--text3); max-width: 680px; margin: 1rem auto 0; font-style: italic; }
 
 /* ── Cards ── */
 .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
@@ -129,6 +137,17 @@ a:hover { text-decoration: underline; }
 .calc-summary.visible { display: block; }
 .calc-summary strong { color: var(--text); }
 .chart-wrap { position: relative; }
+.calc-note {
+  margin-top: 1rem;
+  color: var(--text3);
+  font-size: .8rem;
+  line-height: 1.6;
+}
+.calc-note strong { color: var(--text2); }
+.calc-note ul { margin: .4rem 0 0 1.1rem; }
+.calc-note li { margin-bottom: .25rem; }
+.calc-note li:last-child { margin-bottom: 0; }
+.calc-note--wide { grid-column: 1 / -1; }
 .spinner { display: none; position: absolute; inset: 0; background: var(--bg); opacity: .85; align-items: center; justify-content: center; border-radius: var(--radius); }
 .spinner.active { display: flex; }
 .spinner__ring { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
@@ -212,9 +231,9 @@ mjx-container { overflow-x: auto; }
 <!-- ═══════════════════════════════════════ HERO ═══════════════════════════════════════ -->
 <section class="hero">
 <div class="container">
-  <h1>How to Configure Hierarchical Search:<br>Closed-form Scaling Laws for 6G Beam Management</h1>
+  <h1>How to Configure Hierarchical Search: Closed-form Scaling Laws for 6G Beam Management</h1>
   <p class="hero__authors">Olga Galinina &thinsp;&middot;&thinsp; Sergey Andreev &thinsp;&middot;&thinsp; Robert Heath</p>
-  <p class="hero__sub">Hierarchical search is the standard alternative to exhaustive search in directional wireless access. Yet its performance depends on how it is configured. This page illustrate the choice of optimal parameters and provides a simple baseline for 6G beam management research.</p>
+  <p class="hero__sub">Hierarchical search is the standard alternative to exhaustive search in directional wireless access. Yet its performance depends on how it is configured. This page illustrates the choice of optimal parameters and provides a simple baseline for 6G beam management research.</p>
   <div class="hero__btns">
     <a href="https://github.com/OlgaGalinina/hierarchical-search" target="_blank" rel="noopener" class="btn">
       <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
@@ -244,7 +263,7 @@ mjx-container { overflow-x: auto; }
   <div class="video-wrap">
       <iframe src="https://www.youtube-nocookie.com/embed/zf--Cutuh2o?rel=0&modestbranding=1" title="Hierarchical Beam Search: Scaling Laws" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin"></iframe>  
   </div>
-  <p class="video-caption">A conceptual introduction to scaling laws in hierarchical search: how optimal depth, resource allocation, and misdetection probability relate as codebook size grows.</p>
+  <p class="video-caption">A conceptual introduction to scaling laws in hierarchical search: how optimal depth, resource allocation, and misdetection probability scale with codebook size.</p>
 </div>
 </section>
 
@@ -298,7 +317,7 @@ mjx-container { overflow-x: auto; }
         <input type="number" id="customsym" value="66.67" step="any" min="0.1">
       </div>
       <div class="field--row field">
-        <div class="field"><label>T<sub>c</sub> burst [ms]</label><input type="number" id="tc" value="10" step="any" min="0.1"></div>
+        <div class="field"><label>T<sub>c</sub> burst [ms]</label><input type="number" id="tc" value="10" step="any" min="0"></div>
       </div>
       <button class="btn btn--filled" id="compute-btn" onclick="runCalc()">Compute</button>
     </div>
@@ -310,44 +329,55 @@ mjx-container { overflow-x: auto; }
         <div class="spinner" id="spinner"><div class="spinner__ring"></div></div>
       </div>
     </div>
+    <div class="calc-note calc-note--wide">
+      <strong>Note.</strong> In reality, misdetection probability has two regimes:
+      <ul>
+        <li><strong>SNR-limited,</strong> where the target beam has high gain and non-target beams have near-zero gain. This widget assumes the SNR-limited regime.</li>
+        <li><strong>Sidelobe-limited,</strong> where adjacent beam sidelobes are large and even without noise, the faded signal on a sidelobe can exceed the main lobe. The above model ignores this regime, assuming beams have no overlapping sidelobes.</li>
+      </ul>
+    </div>
   </div>
 </div>
 </section>
 
 <!-- ═══════════════════════════════════════ RESULTS CARDS ═══════════════════════════════════════ -->
 <section>
-<div class="container">
+<div class="container--wide">
   <div class="section-label">Key results</div>
   <h2>Closed-form optimal configuration</h2>
   <div class="cards">
     <!-- Card A -->
     <div class="card">
-      <div class="card__label">Proposition 1 &amp; 2</div>
+      <div class="card__label">Propositions 1 - 3</div>
       <div class="card__title">Unconstrained optimum</div>
+      <div class="card__eq" style="margin-top:.75rem;font-size:.82rem;color:var(--text3)">Basic configuration (no inter-layer intervals \(c\)):</div>   
       <div class="card__eq">\( L^* = \ln X \) layers</div>
       <div class="card__eq">\( N^* = X^{1/\ln X} \) beams per layer</div>
       <div class="card__eq">\( R^* = e\ln X \) total resources</div>
       <div class="card__eq" style="margin-top:.75rem;font-size:.82rem;color:var(--text3)">Option A delay (equal inter-layer intervals \(c\)):</div>
-      <div class="card__eq">\( L_A^* = \dfrac{\ln X}{1 + W(c/e)} \)</div>
+      <div class="card__eq">\( L_A^* = \dfrac{\ln X}{1 + W(c/e)} \) layers</div>
       <div class="card__eq" style="margin-top:.5rem;font-size:.82rem;color:var(--text3)">Option B delay (fixed period \(c_1\) between sweep starts):</div>
-      <div class="card__eq">\( L_B^* = \dfrac{\ln X}{2\,W\!\left(\dfrac{\sqrt{c_1 \ln X}}{2}\right)} \)</div>
-      <button class="card__toggle" onclick="this.nextElementSibling.classList.toggle('open');this.textContent=this.nextElementSibling.classList.contains('open')?'▲ hide details':'▼ show details'">▼ show details</button>
+      <div class="card__eq">\( L_B^* = \dfrac{\ln X}{2\,W\!\left(\dfrac{\sqrt{c_1 \ln X}}{2}\right)} \) layers </div>
+      <!-- <button class="card__toggle" onclick="this.nextElementSibling.classList.toggle('open');this.textContent=this.nextElementSibling.classList.contains('open')?'▲ hide details':'▼ show details'">▼ show details</button>   
       <div class="card__details">
         The optimal per-layer beam count \(N^* = X^{1/L}\) follows from minimizing \(\sum N_\ell\) subject to \(\prod N_\ell = X\), which is an arithmetic-geometric mean problem. For fixed \(L\), the optimum is \(N_\ell = X^{1/L}\) (equal widths). Optimizing over \(L\) then gives \(L^* = \ln X\) by solving \(\frac{d}{dL}[L \cdot X^{1/L}] = 0\). For Option B, the objective becomes \(X^{1/L} + c_1(L-1)\) and the Lambert-W correction follows from the stationarity condition \(X^{1/L} \ln X = c_1 L^2\).
-      </div>
+      </div> 
+-->
+
     </div>
     <!-- Card B -->
     <div class="card">
-      <div class="card__label">Proposition 3</div>
-      <div class="card__title">With reliability constraint</div>
-      <div class="card__eq" style="font-size:.82rem;color:var(--text3)">Per-layer error probability (exact, Rician fading):</div>
-      <div class="card__eq">\( P_e = 1 - \sum_{m=0}^{N-1}\binom{N-1}{m}(-1)^m \dfrac{e^{-m\nu/N_0}}{1+m\sigma^2/N_0} \)</div>
-      <div class="card__eq" style="margin-top:.75rem;font-size:.82rem;color:var(--text3)">Sufficient closed-form condition (\(\varepsilon \ll 1\)):</div>
-      <div class="card__eq">\( \dfrac{(K{+}1)e^{-K} H_{N-1}\,\theta_0}{101.5^\circ \cdot \mathrm{SNR}} \cdot \dfrac{1-(N{-}1)^{-L}}{N-2} \leq \varepsilon \)</div>
-      <p style="font-size:.8rem;color:var(--text3);margin-top:.75rem">At typical 6G SNR the reliability constraint may be inactive. The calculator shows when it bites.</p>
-      <button class="card__toggle" onclick="this.nextElementSibling.classList.toggle('open');this.textContent=this.nextElementSibling.classList.contains('open')?'▲ hide details':'▼ show details'">▼ show details</button>
+      <div class="card__label">Extended proposition</div>
+      <div class="card__title">With reliability constraint (Rician channel model)</div>
+      <div class="card__eq" style="font-size:.82rem;color:var(--text3)">Per-layer beam misdetection probability (exact, Rician fading):</div>
+      <div class="card__eq">\( P_e(N,\theta) = 1 - \sum \limits_{m=0}^{N-1}\binom{N-1}{m}(-1)^m
+        \dfrac{1}{1+m\sigma^2_{\mathrm{tot}}/N_0}
+        \exp\!\left(-\dfrac{m\nu/N_0}{1+m\sigma^2_{\mathrm{tot}}/N_0}\right), \)</div>
+      <div class="card__eq" style="margin-top:.75rem;font-size:.82rem;color:var(--text3)">where <mjx-container class="MathJax CtxtMenu_Attached_0" jax="CHTML" tabindex="0" ctxtmenu_counter="19" style="font-size: 117%; position: relative;"><mjx-math class="MJX-TEX" aria-hidden="true"><mjx-mi class="mjx-i"><mjx-c class="mjx-c1D708 TEX-I"></mjx-c></mjx-mi><mjx-mo class="mjx-n" space="4"><mjx-c class="mjx-c3D"></mjx-c></mjx-mo><mjx-mfrac space="4"><mjx-frac><mjx-num><mjx-nstrut></mjx-nstrut><mjx-mrow size="s"><mjx-mi class="mjx-i"><mjx-c class="mjx-c1D43A TEX-I"></mjx-c></mjx-mi><mjx-mstyle style="font-size: 141.4%;"><mjx-mspace style="width: 0.167em;"></mjx-mspace></mjx-mstyle><mjx-msub><mjx-mi class="mjx-i"><mjx-c class="mjx-c1D443 TEX-I"></mjx-c></mjx-mi><mjx-script style="vertical-align: -0.15em; margin-left: -0.109em;"><mjx-texatom texclass="ORD" style="font-size: 73.7%;"><mjx-mi class="mjx-i"><mjx-c class="mjx-c1D45F TEX-I"></mjx-c></mjx-mi><mjx-mi class="mjx-i"><mjx-c class="mjx-c1D465 TEX-I"></mjx-c></mjx-mi></mjx-texatom></mjx-script></mjx-msub><mjx-mstyle style="font-size: 141.4%;"><mjx-mspace style="width: 0.167em;"></mjx-mspace></mjx-mstyle><mjx-mi class="mjx-i"><mjx-c class="mjx-c1D43E TEX-I"></mjx-c></mjx-mi></mjx-mrow></mjx-num><mjx-dbox><mjx-dtable><mjx-line></mjx-line><mjx-row><mjx-den><mjx-dstrut></mjx-dstrut><mjx-mrow size="s"><mjx-mi class="mjx-i"><mjx-c class="mjx-c1D43E TEX-I"></mjx-c></mjx-mi><mjx-mo class="mjx-n"><mjx-c class="mjx-c2B"></mjx-c></mjx-mo><mjx-mn class="mjx-n"><mjx-c class="mjx-c31"></mjx-c></mjx-mn></mjx-mrow></mjx-den></mjx-row></mjx-dtable></mjx-dbox></mjx-frac></mjx-mfrac></mjx-math><mjx-assistive-mml unselectable="on" display="inline"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>ν</mi><mo>=</mo><mfrac><mrow><mi>G</mi><mstyle scriptlevel="0"><mspace width="0.167em"></mspace></mstyle><msub><mi>P</mi><mrow data-mjx-texclass="ORD"><mi>r</mi><mi>x</mi></mrow></msub><mstyle scriptlevel="0"><mspace width="0.167em"></mspace></mstyle><mi>K</mi></mrow><mrow><mi>K</mi><mo>+</mo><mn>1</mn></mrow></mfrac></math></mjx-assistive-mml></mjx-container> is the LOS power and <mjx-container class="MathJax CtxtMenu_Attached_0" jax="CHTML" tabindex="0" ctxtmenu_counter="20" style="font-size: 117%; position: relative;"><mjx-math class="MJX-TEX" aria-hidden="true"><mjx-msubsup><mjx-mi class="mjx-i"><mjx-c class="mjx-c1D70E TEX-I"></mjx-c></mjx-mi><mjx-script style="vertical-align: -0.252em; margin-left: 0px;"><mjx-mn class="mjx-n" size="s"><mjx-c class="mjx-c32"></mjx-c></mjx-mn><mjx-spacer style="margin-top: 0.18em;"></mjx-spacer><mjx-texatom size="s" texclass="ORD"><mjx-texatom texclass="ORD"><mjx-mi class="mjx-n"><mjx-c class="mjx-c74"></mjx-c><mjx-c class="mjx-c6F"></mjx-c><mjx-c class="mjx-c74"></mjx-c></mjx-mi></mjx-texatom></mjx-texatom></mjx-script></mjx-msubsup><mjx-mo class="mjx-n" space="4"><mjx-c class="mjx-c3D"></mjx-c></mjx-mo><mjx-mfrac space="4"><mjx-frac><mjx-num><mjx-nstrut></mjx-nstrut><mjx-mrow size="s"><mjx-mi class="mjx-i"><mjx-c class="mjx-c1D43A TEX-I"></mjx-c></mjx-mi><mjx-mstyle style="font-size: 141.4%;"><mjx-mspace style="width: 0.167em;"></mjx-mspace></mjx-mstyle><mjx-msub><mjx-mi class="mjx-i"><mjx-c class="mjx-c1D443 TEX-I"></mjx-c></mjx-mi><mjx-script style="vertical-align: -0.15em; margin-left: -0.109em;"><mjx-texatom texclass="ORD" style="font-size: 73.7%;"><mjx-mi class="mjx-i"><mjx-c class="mjx-c1D45F TEX-I"></mjx-c></mjx-mi><mjx-mi class="mjx-i"><mjx-c class="mjx-c1D465 TEX-I"></mjx-c></mjx-mi></mjx-texatom></mjx-script></mjx-msub></mjx-mrow></mjx-num><mjx-dbox><mjx-dtable><mjx-line></mjx-line><mjx-row><mjx-den><mjx-dstrut></mjx-dstrut><mjx-texatom size="s" texclass="ORD"><mjx-mi class="mjx-i"><mjx-c class="mjx-c1D43E TEX-I"></mjx-c></mjx-mi><mjx-mo class="mjx-n"><mjx-c class="mjx-c2B"></mjx-c></mjx-mo><mjx-mn class="mjx-n"><mjx-c class="mjx-c31"></mjx-c></mjx-mn></mjx-texatom></mjx-den></mjx-row></mjx-dtable></mjx-dbox></mjx-frac></mjx-mfrac><mjx-mo class="mjx-n" space="3"><mjx-c class="mjx-c2B"></mjx-c></mjx-mo><mjx-msub space="3"><mjx-mi class="mjx-i"><mjx-c class="mjx-c1D441 TEX-I"></mjx-c></mjx-mi><mjx-script style="vertical-align: -0.15em; margin-left: -0.085em;"><mjx-mn class="mjx-n" size="s"><mjx-c class="mjx-c30"></mjx-c></mjx-mn></mjx-script></mjx-msub></mjx-math><mjx-assistive-mml unselectable="on" display="inline"><math xmlns="http://www.w3.org/1998/Math/MathML"><msubsup><mi>σ</mi><mrow data-mjx-texclass="ORD"><mrow data-mjx-texclass="ORD"><mi data-mjx-auto-op="false">tot</mi></mrow></mrow><mn>2</mn></msubsup><mo>=</mo><mfrac><mrow><mi>G</mi><mstyle scriptlevel="0"><mspace width="0.167em"></mspace></mstyle><msub><mi>P</mi><mrow data-mjx-texclass="ORD"><mi>r</mi><mi>x</mi></mrow></msub></mrow><mrow data-mjx-texclass="ORD"><mi>K</mi><mo>+</mo><mn>1</mn></mrow></mfrac><mo>+</mo><msub><mi>N</mi><mn>0</mn></msub></math></mjx-assistive-mml></mjx-container>&nbsp;is the total variance, including scattering and receiver noise. This expression is exact for all SNR and all <mjx-container class="MathJax CtxtMenu_Attached_0" jax="CHTML" tabindex="0" ctxtmenu_counter="21" style="font-size: 117%; position: relative;"><mjx-math class="MJX-TEX" aria-hidden="true"><mjx-mi class="mjx-i"><mjx-c class="mjx-c1D43E TEX-I"></mjx-c></mjx-mi><mjx-mo class="mjx-n" space="4"><mjx-c class="mjx-c2265"></mjx-c></mjx-mo><mjx-mn class="mjx-n" space="4"><mjx-c class="mjx-c30"></mjx-c></mjx-mn></mjx-math><mjx-assistive-mml unselectable="on" display="inline"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>K</mi><mo>≥</mo><mn>0</mn></math></mjx-assistive-mml></mjx-container>.</div>
+      <p style="font-size:.8rem;color:var(--text3);margin-top:.75rem">At typical 6G SNR values, the reliability constraint may be inactive. The calculator shows when it activates.</p>
+      <button class="card__toggle" onclick="this.nextElementSibling.classList.toggle('open');this.textContent=this.nextElementSibling.classList.contains('open')?'▲ hide details':'▼ show details'">▲ hide details</button>
       <div class="card__details">
-        <strong>Assumptions:</strong> boundary-centered beam placement (HPBW = \(\theta/(N{-}1)\)), Rician \(K\)-factor with i.i.d. scatter, AWGN noise with figure \(N_F\), layer independence (block fading). The gain on the correct beam is \(G = \min(N_\mathrm{ant},\, 101.5°(N{-}1)/\theta)\), capped at the array size. The sufficient condition is derived from the harmonic approximation \(P_e \approx (K{+}1)e^{-K}H_{N-1}/(G \cdot \mathrm{SNR})\) under high SNR.
+        <strong>Assumptions:</strong> boundary-centered beam placement (HPBW = \(\theta/(N{-}1)\)), Rician \(K\)-factor with i.i.d. scatter, AWGN noise with figure \(N_F\), layer independence. The gain on the correct beam is \(G = \min(N_\mathrm{ant},\, 101.5^\circ(N{-}1)/\theta)\), capped at the array size; \(\nu\) and \(\sigma^2_{\mathrm{tot}}\) are computed from this gain and the Rician/SNR parameters.
       </div>
     </div>
   </div>
@@ -376,7 +406,7 @@ mjx-container { overflow-x: auto; }
       <div class="resource-card__icon">📝</div>
       <div class="resource-card__title">Manuscript</div>
       <div class="resource-card__desc">Under review. Contact authors for a preprint copy.</div>
-      <a href="mailto:olga.galinina@gmail.com">olga.galinina@gmail.com</a>
+      <span style="color:var(--accent);font-size:.8rem">olga.galinina [at] gmail [dot] com</span>
     </div>
   </div>
 </div>
@@ -517,7 +547,7 @@ mjx-container { overflow-x: auto; }
 
 <span class="code-fn">def</span> <span class="code-fn">reliability_exact</span>(L, X, SNR, K=<span class="code-num">10</span>, theta0=<span class="code-num">120.0</span>,
                          Nant=<span class="code-num">128</span>, epsilon=<span class="code-num">0.01</span>):
-    <span class="code-cm">"""prod_{ell=1}^{L} (1-Pe_exact(ell)) >= 1-epsilon"""</span>
+    <span class="code-cm">"""prod_{ell=1}^{L} (1-Pe_exact(ell)) ""&gt;"" 1-epsilon"""</span>
     N = X**(<span class="code-num">1.0</span>/L)
     <span class="code-kw">if</span> N &lt; <span class="code-num">2</span>: <span class="code-kw">return</span> <span class="code-kw">False</span>
     log_prod = <span class="code-num">0.0</span>
@@ -544,28 +574,23 @@ mjx-container { overflow-x: auto; }
 
 <!-- ═══════════════════════════════════════ SCRIPTS ═══════════════════════════════════════ -->
 <script>
-// ── Lambert-W via Halley iterations (converges in ~6 steps for all x>0) ──────
+// ── Lambert-W via Newton iterations ──────────────────────────────────────────
 function lambertW(x) {
   if (x <= 0) return 0;
   let w = x < 1 ? x : Math.log(x);
   for (let i = 0; i < 12; i++) {
-    const ew  = Math.exp(w);
-    const f   = w * ew - x;
-    const fp  = ew * (w + 1);
-    const fpp = ew * (w + 2);
-    w -= f / (fp - f * fpp / (2 * fp));   // Halley step (correct form)
+    const ew = Math.exp(w);
+    w -= (w * ew - x) / (ew * (w + 1) - (w + 2) * (w * ew - x) / (2 * w + 2));
   }
   return w;
 }
 
-// ── Core math ──────────────────────────────────────────────────────────────────
+// ── Core math ─────────────────────────────────────────────────────────────────
 function beamGain(N, thetaDeg, Nant) {
   return Math.min(Nant, 101.5 * (N - 1) / thetaDeg);
 }
 function harmonic(n) {
-  let h = 0;
-  for (let k = 1; k <= n; k++) h += 1 / k;
-  return h;
+  let h = 0; for (let k = 1; k <= n; k++) h += 1 / k; return h;
 }
 function geoSum(N, L) {
   if (N - 1 <= 1) return L;
@@ -573,30 +598,32 @@ function geoSum(N, L) {
 }
 function LoptB(X, c1) {
   if (X <= 1) return 1;
+  if (c1 <= 0) return Math.log(X);
   const arg = Math.sqrt(c1 * Math.log(X)) / 2;
-  const W   = lambertW(arg);
-  return W > 0 ? Math.log(X) / (2 * W) : 1;
+  const W = lambertW(arg);
+  return W > 0 ? Math.max(1, Math.log(X) / (2 * W)) : Math.log(X);
+}
+function continuousLB(X, c1) {
+  if (c1 <= 0) return Math.E * Math.log(X);
+  const L = LoptB(X, c1);
+  return Math.pow(X, 1 / L) + c1 * (L - 1);
 }
 function delayB(L, X, c1) {
-  return Math.ceil(Math.pow(X, 1 / L)) + c1 * (L - 1);
+  const N = Math.ceil(Math.pow(X, 1 / L));
+  return c1 <= 0 ? L * N : N + c1 * (L - 1);
 }
 
-// ── Exact Pe via binomial sum with Kahan compensated summation ─────────────────
-// Kahan summation eliminates the floating-point cancellation error that causes
-// the spiky artefacts in the constrained curves. Reliable for N ≤ ~48.
+// ── Exact Pe (recursive binom, float64, reliable N≤48) ───────────────────────
 function Pe_exact(N, thetaDeg, SNR, K, Nant) {
   const G = beamGain(N, thetaDeg, Nant);
   if (G <= 0 || N < 2) return 1;
   const nu = G * SNR * K / (K + 1);
   const s2 = G * SNR / (K + 1) + 1;
-
-  // Kahan compensated alternating sum: s = sum_{m=0}^{N-1} (-1)^m C(N-1,m) * LT(m)
   let s = 1, comp = 0, binom = 1, sign = -1;
   for (let m = 1; m < N; m++) {
-    binom *= (N - m) / m;                         // recursive C(N-1,m)
+    binom *= (N - m) / m;
     const denom = 1 + m * s2;
     const term  = sign * binom * Math.exp(-m * nu / denom) / denom;
-    // Kahan step
     const y = term - comp;
     const t = s + y;
     comp = (t - s) - y;
@@ -607,14 +634,14 @@ function Pe_exact(N, thetaDeg, SNR, K, Nant) {
   return (pe >= 0 && pe <= 1) ? pe : NaN;
 }
 
-// ── Harmonic Pe approximation ──────────────────────────────────────────────────
+// ── Harmonic Pe approximation ─────────────────────────────────────────────────
 function Pe_harm(N, thetaDeg, SNR, K, Nant) {
   const G = beamGain(N, thetaDeg, Nant);
   if (G <= 0 || N < 2) return 1;
   return (K + 1) * Math.exp(-K) * harmonic(N - 1) / (G * SNR);
 }
 
-// ── Reliability checks ─────────────────────────────────────────────────────────
+// ── Reliability checks ────────────────────────────────────────────────────────
 function reliabilityExact(L, X, SNR, K, theta0, Nant, eps) {
   const N = Math.pow(X, 1 / L);
   if (N < 2) return false;
@@ -622,44 +649,70 @@ function reliabilityExact(L, X, SNR, K, theta0, Nant, eps) {
   for (let ell = 1; ell <= L; ell++) {
     const th = theta0 / Math.pow(N - 1, ell - 1);
     const pe = Pe_exact(N, th, SNR, K, Nant);
-    logProd += Math.log(Math.max(1 - (isNaN(pe) ? 0.5 : pe), 1e-15));
+    if (isNaN(pe)) return false;   // binomial sum unstable — treat as unknown, skip this L
+    logProd += Math.log(Math.max(1 - pe, 1e-15));
   }
   return logProd >= Math.log(1 - eps);
 }
+
+function reliabilityHarmonicPe(L, X, SNR, K, theta0, Nant, eps) {
+  const N = Math.pow(X, 1 / L);
+  if (N < 2) return false;
+  let logProd = 0;
+  for (let ell = 1; ell <= L; ell++) {
+    const th = theta0 / Math.pow(N - 1, ell - 1);
+    const pe = Pe_harm(N, th, SNR, K, Nant);
+    logProd += Math.log(Math.max(1 - pe, 1e-15));
+  }
+  return logProd >= Math.log(1 - eps);
+}
+
 function reliabilityHarmonic(L, X, SNR, K, theta0, Nant, eps) {
   const N = Math.pow(X, 1 / L);
   if (N < 2) return false;
-  const H   = harmonic(Math.max(1, Math.round(N) - 1));
+  const H = harmonic(Math.max(1, Math.round(N) - 1));
   const lhs = (K + 1) * Math.exp(-K) * H * theta0 / (101.5 * SNR) * geoSum(N, L);
   return lhs <= eps;
 }
 
-// ── Find best discrete L for all three constraint modes ────────────────────────
-function bestDiscrete(X, c1, SNR, K, theta0, Nant, eps) {
-  const Lc    = LoptB(X, c1);
-  const range = [];
-  for (let L = Math.max(1, Math.floor(Lc) - 1); L <= Math.floor(Lc) + 5; L++) range.push(L);
-
-  let bu = {L:1, T:Infinity}, be = {L:null, T:Infinity}, bh = {L:null, T:Infinity};
-  for (const L of range) {
+// ── Best discrete L: check floor, ceil, and neighbours ───────────────────────
+function bestUnconstrained(X, c1) {
+  const Lc = Math.max(1, LoptB(X, c1));
+  let bestL = 1, bestT = Infinity;
+  // Check floor, ceil, and one on each side
+  for (let L = Math.max(1, Math.floor(Lc) - 1); L <= Math.ceil(Lc) + 1; L++) {
     const T = delayB(L, X, c1);
-    if (T < bu.T) bu = {L, T};
-    if (reliabilityExact(L, X, SNR, K, theta0, Nant, eps)    && T < be.T) be = {L, T};
-    if (reliabilityHarmonic(L, X, SNR, K, theta0, Nant, eps) && T < bh.T) bh = {L, T};
+    if (T < bestT) { bestT = T; bestL = L; }
   }
-  // Widen search if constraint not satisfied in the neighbourhood
-  for (let L = 1; L <= 60; L++) {
-    const T = delayB(L, X, c1);
-    if (!be.L && reliabilityExact(L, X, SNR, K, theta0, Nant, eps))    be = {L, T};
-    if (!bh.L && reliabilityHarmonic(L, X, SNR, K, theta0, Nant, eps)) bh = {L, T};
-    if (be.L && bh.L) break;
-  }
-  return {bu, be, bh};
+  return { L: bestL, T: bestT };
 }
 
-// ── Main computation ───────────────────────────────────────────────────────────
-let myChart = null;
+function bestDiscrete(X, c1, SNR, K, theta0, Nant, eps) {
+  const Lc = Math.max(1, LoptB(X, c1));
 
+  // Unconstrained: delay is unimodal near Lc, narrow search is exact
+  let bu = { L: 1, T: Infinity };
+  for (let L = Math.max(1, Math.floor(Lc) - 1); L <= Math.ceil(Lc) + 2; L++) {
+    const T = delayB(L, X, c1);
+    if (T < bu.T) bu = { L, T };
+  }
+
+  // Constrained: reliability can move the optimum away from Lc, so scan broadly.
+  let be = { L: null, T: Infinity };
+  // Harmonic curves are temporarily disabled while debugging:
+  // let bh = { L: null, T: Infinity };
+  // let bha = { L: null, T: Infinity };
+  for (let L = 1; L <= 60; L++) {
+    const T = delayB(L, X, c1);
+    if (reliabilityExact(L, X, SNR, K, theta0, Nant, eps)       && T < be.T)  be  = { L, T };
+    // if (reliabilityHarmonic(L, X, SNR, K, theta0, Nant, eps)    && T < bh.T)  bh  = { L, T };
+    // if (reliabilityHarmonicPe(L, X, SNR, K, theta0, Nant, eps)  && T < bha.T) bha = { L, T };
+  }
+  return { bu, be };
+}
+
+// ── Main computation ──────────────────────────────────────────────────────────
+let myChart = null;
 function runCalc() {
   const sp = document.getElementById('spinner');
   sp.classList.add('active');
@@ -670,70 +723,65 @@ function runCalc() {
 }
 
 function _doCalc() {
-  // Read all inputs
-  const v    = id => parseFloat(document.getElementById(id).value);
-  const xmin = v('xmin'), xmax = v('xmax');
-  const npts = parseInt(document.getElementById('xpts').value);
-  const fc_GHz  = v('fc'), dist   = v('dist');
-  const Ptx_dBm = v('ptx'), NF_dB = v('nf'), B_MHz = v('bw');
-  const K    = v('kric');
-  const Nant = parseInt(document.getElementById('nant').value);
+  const v = id => parseFloat(document.getElementById(id).value);
+  const xmin = v('xmin'), xmax = v('xmax'), npts = parseInt(document.getElementById('xpts').value);
+  const fc_GHz = v('fc'), dist = v('dist'), Ptx_dBm = v('ptx'), NF_dB = v('nf'), B_MHz = v('bw');
+  const K = v('kric'), Nant = parseInt(document.getElementById('nant').value);
   const theta0 = v('theta0'), eps = v('epsilon'), Tc_ms = v('tc');
 
-  // Link budget → per-element SNR
-  const lam     = 3e8 / (fc_GHz * 1e9);
-  const PL      = Math.pow(lam / (4 * Math.PI * dist), 2);
-  const Ptx_W   = Math.pow(10, (Ptx_dBm - 30) / 10);
-  const Prx_W   = Ptx_W * PL;
+  const lam = 3e8 / (fc_GHz * 1e9);
+  const PL = Math.pow(lam / (4 * Math.PI * dist), 2);
+  const Ptx_W = Math.pow(10, (Ptx_dBm - 30) / 10);
+  const Prx_W = Ptx_W * PL;
   const noise_W = 4e-21 * Math.pow(10, NF_dB / 10) * B_MHz * 1e6;
-  const SNR     = Prx_W / noise_W;
-  const SNR_dB  = 10 * Math.log10(SNR);
+  const SNR = Prx_W / noise_W;
+  const SNR_dB = 10 * Math.log10(SNR);
 
-  // Numerology → symbol duration and c1
   const selEl = document.getElementById('numsel');
   const symUs = selEl.value === 'custom'
     ? parseFloat(document.getElementById('customsym').value)
     : parseFloat(selEl.value);
-  const c1    = Math.floor(Tc_ms * 1000 / (2 * symUs));
-  const scale = 2 * symUs / 1e3;   // beam-transmission units → ms
+  const c1 = Math.floor(Tc_ms * 1000 / (2 * symUs));
+  const scale = 2 * symUs / 1e3; // beam-tx → ms
 
-  // Log-spaced integer X values
+  // Log-spaced X values
   const Xvals = [];
   for (let i = 0; i < npts; i++) {
-    const X = Math.round(
-      Math.pow(10, Math.log10(xmin) + i * (Math.log10(xmax) - Math.log10(xmin)) / (npts - 1))
-    );
+    const X = Math.round(Math.pow(10, Math.log10(xmin) + i * (Math.log10(xmax) - Math.log10(xmin)) / (npts - 1)));
     if (!Xvals.includes(X) && X >= 2) Xvals.push(X);
   }
 
-  // Compute all curves
-  const Tu = [], Te = [], Th = [], Tlb = [];
+  const Tu = [], Te = [], Tlb = [];
   for (const X of Xvals) {
     const r = bestDiscrete(X, c1, SNR, K, theta0, Nant, eps);
     Tu.push(r.bu.T * scale);
     Te.push(r.be.L ? r.be.T * scale : null);
-    Th.push(r.bh.L ? r.bh.T * scale : null);
-    const Lc = LoptB(X, c1);
-    Tlb.push((Math.pow(X, 1 / Lc) + c1 * (Lc - 1)) * scale);
+    // Harmonic curves are temporarily disabled while debugging:
+    // Th.push(r.bh.L ? r.bh.T * scale : null);
+    // Tha.push(r.bha.L ? r.bha.T * scale : null);
+    Tlb.push(continuousLB(X, c1) * scale);
   }
 
-  // Summary: L* and N* at X = xmax
-  const Lstar = LoptB(xmax, c1);
-  const Nstar = Math.pow(xmax, 1 / Lstar);
+// Summary at X = xmax
+const rmax = bestDiscrete(xmax, c1, SNR, K, theta0, Nant, eps);
+const Ldisc  = rmax.bu.L;
+const Ndisc  = Math.ceil(Math.pow(xmax, 1 / Ldisc));
+const Tdisc  = rmax.bu.T * scale;
+const Lcont  = LoptB(xmax, c1);
 
-  // Update summary box — always rewrite, whether first run or recompute
-  const summ = document.getElementById('calc-summary');
-  summ.textContent = '';   // clear first to force repaint
-  summ.innerHTML =
-    `<strong>SNR</strong> ${SNR_dB.toFixed(1)} dB &nbsp;|&nbsp; ` +
-    `<strong>c\u2081</strong> = ${c1} &nbsp;|&nbsp; ` +
-    `<strong>L*(X\u202F=\u202F${xmax.toLocaleString()})</strong> = ${Lstar.toFixed(2)} \u2192 ${Math.ceil(Lstar)} &nbsp;|&nbsp; ` +
-    `<strong>N*(X\u202F=\u202F${xmax.toLocaleString()})</strong> = ${Nstar.toFixed(1)}`;
-  summ.style.display = 'block';
-  summ.style.visibility = 'visible';
-  summ.style.opacity = '1';
+const summ = document.getElementById('calc-summary');
+summ.innerHTML =
+  `<strong>SNR</strong> ${SNR_dB.toFixed(1)} dB &nbsp;|&nbsp; ` +
+  `<strong>c\u2081</strong> = ${c1} &nbsp;|&nbsp; ` +
+  `<strong>L*</strong> = ${Lcont.toFixed(2)} \u2192 ${Ldisc} &nbsp;|&nbsp; ` +
+  `<strong>N*</strong> = ${Ndisc} &nbsp;|&nbsp; ` +
+  `<strong>T*</strong> = ${Tdisc.toFixed(1)} ms` +
+  `<span style="color:#6b7280;font-size:0.9em;margin-left:6px">` +
+  `(unconstrained, X\u202F=\u202F${xmax.toLocaleString()})</span>`;
+summ.style.display = 'block';
+summ.style.visibility = 'visible';
+summ.style.opacity = '1';
 
-  // Rebuild chart
   const ctx = document.getElementById('delay-chart').getContext('2d');
   if (myChart) myChart.destroy();
   myChart = new Chart(ctx, {
@@ -741,96 +789,50 @@ function _doCalc() {
     data: {
       labels: Xvals,
       datasets: [
-        {
-          label: 'Lower bound (continuous)',
-          data: Tlb,
-          borderColor: '#6b7280', borderDash: [6, 3],
-          borderWidth: 1.2, pointRadius: 0, tension: 0.2, spanGaps: true
-        },
-        {
-          label: 'Unconstrained discrete',
-          data: Tu,
-          borderColor: '#1d4ed8',
-          borderWidth: 1.8, pointRadius: 0, tension: 0.1, spanGaps: true
-        },
-        {
-          label: `Exact constraint (\u03B5\u202F=\u202F${eps})`,
-          data: Te,
-          borderColor: '#059669', borderDash: [4, 3],
-          borderWidth: 1.8, pointRadius: 0, tension: 0.1, spanGaps: true
-        },
-        {
-          label: 'Harmonic constraint',
-          data: Th,
-          borderColor: '#d97706', borderDash: [2, 3],
-          borderWidth: 1.5, pointRadius: 0, tension: 0.1, spanGaps: true
-        }
+        { label: 'Lower bound (continuous)', data: Tlb, borderColor:'#6b7280', borderDash:[6,3], borderWidth:1.2, pointRadius:0, tension:.2, spanGaps:true },
+        { label: 'Unconstrained discrete', data: Tu, borderColor:'#1d4ed8', borderWidth:1.8, pointRadius:0, tension:.1, spanGaps:true },
+        { label: `Exact constraint (ε=${eps})`, data: Te, borderColor:'#059669', borderDash:[4,3], borderWidth:1.8, pointRadius:0, tension:.1, spanGaps:true },
+        // Harmonic curves are temporarily disabled while debugging:
+        // { label: 'Harmonic constraint', data: Th, borderColor:'#d97706', borderDash:[2,3], borderWidth:1.5, pointRadius:0, tension:.1, spanGaps:true },
+        // { label: 'Harmonic Pe constraint (approx)', data: Tha, borderColor:'#7c3aed', borderDash:[1,2], borderWidth:2, pointRadius:0, tension:.1, spanGaps:true },
       ]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      scales: {
-        x: {
-          type: 'logarithmic',
-          title: { display: true, text: 'Codebook size X' },
-          ticks: {
-            callback: v => Number.isInteger(Math.log10(v)) ? v.toLocaleString() : ''
-          }
-        },
-        y: {
-          min: 0,
-          title: { display: true, text: 'Delay [ms]' }
-        }
+      responsive:true, maintainAspectRatio:true,
+      scales:{
+        x:{ type:'logarithmic', title:{display:true,text:'Codebook size X'}, ticks:{callback:v=>Number.isInteger(Math.log10(v))?v.toLocaleString():''} },
+        y:{ min:0, title:{display:true,text:'Delay [ms]'} }
       },
-      plugins: {
-        legend: { labels: { font: { size: 11 } } },
-        title: {
-          display: true,
-          text: [
-            `Option B \u2014 fixed period c\u2081 between sweep starts`,
-            `SNR\u2091\u2097\u2091\u2098 = ${SNR_dB.toFixed(1)} dB,  ` +
-            `K = ${K},  \u03B8\u2080 = ${theta0}\u00B0,  ` +
-            `N\u2090\u2099\u209C = ${Nant},  ` +
-            `\u03B5 = ${eps}`
-          ],
-          font: { size: 12 },
-          padding: { bottom: 8 }
-        }
-      }
+      plugins:{legend:{labels:{font:{size:11}}}}
     }
   });
 }
 
-// Numerology selector: show/hide custom symbol duration field
-document.getElementById('numsel').addEventListener('change', function () {
-  document.getElementById('custom-sym-field').style.display =
-    this.value === 'custom' ? '' : 'none';
+document.getElementById('numsel').addEventListener('change', function() {
+  document.getElementById('custom-sym-field').style.display = this.value === 'custom' ? '' : 'none';
 });
 
-// Utilities
+// ── Utilities ─────────────────────────────────────────────────────────────────
 function copyBibtex() {
   navigator.clipboard.writeText(document.getElementById('bibtex-block').textContent);
-  const btn = event.target;
-  btn.textContent = 'Copied!';
-  setTimeout(() => btn.textContent = 'Copy BibTeX', 1800);
+  const btn = event.target; btn.textContent = 'Copied!';
+  setTimeout(()=>btn.textContent='Copy BibTeX', 1800);
 }
 function openModal()  { document.getElementById('modal').classList.add('open'); }
 function closeModal() { document.getElementById('modal').classList.remove('open'); }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
 
 let activeTab = 0;
 function switchTab(i) {
-  document.querySelectorAll('.tab-btn').forEach((b, j) => b.classList.toggle('active', j === i));
-  document.querySelectorAll('.code-block').forEach((b, j) => b.classList.toggle('active', j === i));
+  document.querySelectorAll('.tab-btn').forEach((b,j)=>b.classList.toggle('active',j===i));
+  document.querySelectorAll('.code-block').forEach((b,j)=>b.classList.toggle('active',j===i));
   activeTab = i;
 }
 function copyModalTab() {
   const block = document.querySelectorAll('.code-block')[activeTab];
   navigator.clipboard.writeText(block.innerText);
   const btn = document.getElementById('modal-copy-btn');
-  btn.textContent = 'Copied!';
-  setTimeout(() => btn.textContent = 'Copy', 1800);
+  btn.textContent='Copied!'; setTimeout(()=>btn.textContent='Copy',1800);
 }
 
 // Run on load with defaults
